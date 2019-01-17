@@ -1,0 +1,19 @@
+---
+title: "My First Rmd File"
+author: "Sam Haynes"
+date: "17th Janurary 2019"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+---
+
+```{r helloFunction}
+helloWorld <- function (){
+  print("Hello World")
+}
+```
+
+```{r main}
+helloWorld()
+```
