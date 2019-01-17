@@ -47,7 +47,7 @@ Git, on the other hand, is a piece of version control software. It is a log of a
 
 Following [this](https://guides.github.com/activities/hello-world/) tutorial and using [this](https://www.atlassian.com/git/tutorials/atlassian-git-cheatsheet) git code cheatsheet
 
-1. Create a new branch for your local copy of this git repository, name it something like <yourname>GitTest
+1. Create a new branch for your local copy of this git repository, name it something like \<yourname\>GitTest
 2. Create a new R file, write a short program consisting of a function that will add two arguments together with an example of it being called
 3. Commit this new file to git and push it back to my online github repo
 4. Now merge your newly created branch with the master and push to your own github repo!
