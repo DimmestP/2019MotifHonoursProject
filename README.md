@@ -29,7 +29,7 @@ If you have got this far git appears to be working correctly. Now lets try R and
 Open the babySteps.R file either via the terminal with the code below or however you choose to open Rstudio.
 
 ```bash
-open -a Rstudio ./src/babySmeetteps.R
+open -a Rstudio ./src/babySteps.R
 ```
 Go to the code tab in Rstudio, then run region and run all. (If this works try looking into the keyboard shortcuts for running the code for future use).
 
