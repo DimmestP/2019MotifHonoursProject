@@ -1,0 +1,21 @@
+---
+title: "Abhi's Attempt at Rmd"
+author: "Abhishek"
+date: "17th Janurary 2019"
+output:
+  html_document:
+    toc: true
+    toc_depth: 4
+---
+
+```{r Addition}
+AddFunction <- function (x,y){
+  sum = x + y
+  print(sum)
+}
+```
+
+```{r Execution}
+AddFunction(5,3)
+print("Thanks. Bye")
+```
