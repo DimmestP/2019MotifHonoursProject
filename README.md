@@ -1,7 +1,7 @@
 # 2019MotifHonoursProject
 Code and resources compiled together as part of the Jan 2019 honours student project on predicting the effects of 3'UTR motifs
 
-Please make sure you have installed the R programming language, its exceptionally useful IDE Rstudio and the sanity saving version control software git.
+Please make sure you have installed the R programming language, its exceptionally useful IDE Rstudio and the sanity saving version control software git. (Plus send me your github account usernames so I can add you as collaborators)
 
 https://www.r-project.org
 
@@ -53,3 +53,13 @@ Following [this](https://guides.github.com/activities/hello-world/) tutorial and
 4. Now merge your newly created branch with the master and push to your own github repo!
 
 Meanwhile, https://www.tutorialspoint.com/git/git_basic_concepts.htm will tell you more than you could ever want to know about git
+
+## Getting used to data manipulation and plotting
+
+To begin, make sure you have the following packages installed!
+```R
+install.packages(tidyverse)
+install.packages(ggplot2)
+```
+
+These are the two packages contain many of the fundamental functions of data analysis. Unfortunately, data is normally poorly formated and some functions can be very specific about the structure of its arguments. tidyverse combines tonnes of useful 
