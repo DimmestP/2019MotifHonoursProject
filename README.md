@@ -67,7 +67,7 @@ These two packages contain many of the fundamental functions of data manipulatio
 Another useful skill is to be able to plot informative, journal ready graphs, ggplot2 is a great way of doing this. the 'gg' of ggplot2 stands for grammar of graphics which refers to a [book](https://link.springer.com/book/10.1007/0-387-28695-0) outlining a logical way of organising graphs. This has developed into a highly versatile program, which although seemingly clunky at first, can rapidly create awesome graphs and dig you out of sticky situations. Again, [ourcodingclub](https://ourcodingclub.github.io/tutorials/) has wonderful tutorials on it. Start [here](https://ourcodingclub.github.io/2017/01/29/datavis.html) then move to [this](https://ourcodingclub.github.io/2017/03/29/data-vis-2.html).
 
 ### Task 1: Getting stuck in
-Thankfully for you (but mainly for me), a summer stundent named Alex cleared up a lovely datset from Sun et al 2013 for you guys to use. Pull down the latest version of this repo and lets get started!
+Thankfully for you (but mainly for me), a summer stundent named Alex cleared up a lovely datset from Sun et al 2013 for you guys to use. Pull down the latest version of this repo and lets get started! Try to complete all the different sections of this task in one file, using git to manage the next version as you finish one task and move onto the next. 
 
 1) Import the decay rate data dr_data.csv and synthesis rate data sr_data.csv from the ./data folder
 2) Create code to calculate the mean decay/synthesis rates for each gene across all of its mutants.
