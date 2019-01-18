@@ -65,3 +65,12 @@ install.packages(ggplot2)
 These two packages contain many of the fundamental functions of data manipulation. Unfortunately, data is normally poorly formated and some functions can be very specific about the structure of its arguments. tidyverse combines tonnes of useful ways of manipulating tables into different shapes, repeating functions over groups of elements and making your code more read friendly. Start to familiarise yourself with tidyverse by going through the [basic](https://ourcodingclub.github.io/2017/03/20/seecc.html) and [advanced](https://ourcodingclub.github.io/2018/03/06/tidyverse.html#tidyverse) tutorials on the UoE's very own [ourcodingclub](https://ourcodingclub.github.io/tutorials/) website.
 
 Another useful skill is to be able to plot informative, journal ready graphs, ggplot2 is a great way of doing this. the 'gg' of ggplot2 stands for grammar of graphics which refers to a [book](https://link.springer.com/book/10.1007/0-387-28695-0) outlining a logical way of organising graphs. This has developed into a highly versatile program, which although seemingly clunky at first, can rapidly create awesome graphs and dig you out of sticky situations. Again, [ourcodingclub](https://ourcodingclub.github.io/tutorials/) has wonderful tutorials on it. Start [here](https://ourcodingclub.github.io/2017/01/29/datavis.html) then move to [this](https://ourcodingclub.github.io/2017/03/29/data-vis-2.html).
+
+### Task 1: Getting stuck in
+Thankfully for you (but mainly for me), a summer stundent named Alex cleared up a lovely datset from Sun et al 2013 for you guys to use. Pull down the latest version of this repo and lets get started!
+
+1) Import the decay rate data dr_data.csv and synthesis rate data sr_data.csv from the ./data folder
+2) Create code to calculate the mean decay/synthesis rates for each gene across all of its mutants.
+3) Can you create a single table of genes who have at least one mutant with a significantly changed decay rate or synthesis rate? Can you get it to record the number of significant mutants for each gene?
+4) Make another table with one row per gene but with the logfold decay/synthesis rates across all mutants along the columns
+5) Plot a ggplot2 graph (with legend, x/y labels and title) of logfolds across all mutants for the top 10 genes with the highest mean synthesis rates. Ensure the mutants are colour coded!
