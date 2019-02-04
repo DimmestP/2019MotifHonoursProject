@@ -66,7 +66,7 @@ These two packages contain many of the fundamental functions of data manipulatio
 
 Another useful skill is to be able to plot informative, journal ready graphs, ggplot2 is a great way of doing this. the 'gg' of ggplot2 stands for grammar of graphics which refers to a [book](https://link.springer.com/book/10.1007/0-387-28695-0) outlining a logical way of organising graphs. This has developed into a highly versatile program, which although seemingly clunky at first, can rapidly create awesome graphs and dig you out of sticky situations. Again, [ourcodingclub](https://ourcodingclub.github.io/tutorials/) has wonderful tutorials on it. Start [here](https://ourcodingclub.github.io/2017/01/29/datavis.html) then move to [this](https://ourcodingclub.github.io/2017/03/29/data-vis-2.html).
 
-### Task 1: Getting stuck in
+### Task 1: Tidyverse Tutorial
 Thankfully for you (but mainly for me), a summer stundent named Alex cleared up a lovely datset from Sun et al 2013 for you guys to use. Pull down the latest version of this repo and lets get started! Try to complete all the different sections of this task in one file, using git to manage the next version as you finish one task and move onto the next. 
 
 1) Import the decay rate data dr_data.csv and synthesis rate data sr_data.csv from the ./data folder
@@ -81,9 +81,20 @@ Rather obviously, huge swaths of data are stored in the versatle yet disordered 
 Regex (or regular expressions) are available, in some form, for all programming languages. They allow you to outline specific patterns (such as an individual words) together with allowed variants (such as misspelling or cultural varitions or ignoring capitalisation) and even more complex local environment conditions (such as only after a full stop or newline). The underlying algorithms then produce and execute the required logic (very often in a more efficient manner then you could possible have done). 
 
 ```R
-# Search for the two spelling of aluminium
+library(stringr)
+
+# Search for the two spellings of aluminium
 regex("alumin( |i)um")
 
 str <- "Is it aluminium or aluminum!"
-str_extract(str,regex("alumin( |i)um"))
+str_extract_all(str,regex("alumin( |i)um"))
 ```
+
+Please go through [R for Data Science's](https://r4ds.had.co.nz/strings.html#introduction-8) tutorial on regex for a more complete overview.
+
+### Task 2: Regex Tutorial
+
+1) Import the txt file holding S.cerevisiae chromosome 7 from the ./data folder
+2) How many times does the TGTTGGAATA motif arise in the chromosome?
+3) What is most common base pair after/before this motif?
+4) Can you create a search to look for single nucleotide mutant of this motif?
