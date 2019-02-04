@@ -84,10 +84,10 @@ Regex (or regular expressions) are available, in some form, for all programming 
 library(stringr)
 
 # Search for the two spellings of aluminium
-regex("alumin( |i)um")
+regex("alumin(|i)um")
 
 str <- "Is it aluminium or aluminum!"
-str_extract_all(str,regex("alumin( |i)um"))
+str_extract_all(str,regex("alumin(|i)um"))
 ```
 
 Please go through [R for Data Science's](https://r4ds.had.co.nz/strings.html#introduction-8) tutorial on regex for a more complete overview.
