@@ -74,3 +74,16 @@ Thankfully for you (but mainly for me), a summer stundent named Alex cleared up 
 3) Can you create a single table of genes who have at least one mutant with a significantly changed decay rate or synthesis rate? Can you get it to record the number of significant mutants for each gene?
 4) Make another table with one row per gene but with the logfold decay/synthesis rates across all mutants along the columns
 5) Plot a ggplot2 graph (with legend, x/y labels and title) of logfolds across all mutants for the top 10 genes with the highest mean synthesis rates. Ensure the mutants are colour coded!
+
+## String Searching 
+Rather obviously, huge swaths of data are stored in the versatle yet disordered string variable type. Compared to matrices of numbers, whose indices uniquely map elements with logically traceable relationships, strings tend to be massive dumps of various variable types and explanatory comments. In essence, strings are vital for human understanding but entirely intractable for computers. A fair amount of data analysis tasks revolve around slicing exceptionally long strings into computer edible chunks for further analysis. You could create painfully complex logic expressions with numerous nested for/if/while loops to account for every conceivable mispelling or capital letter. Or fortunately for us, we can familarise ourselves with the relatively universal syntax for searching for common structure and their similar variations in strings. 
+
+Regex (or regular expressions) are available, in some form, for all programming languages. They allow you to outline specific patterns (such as an individual words) together with allowed variants (such as misspelling or cultural varitions or ignoring capitalisation) and even more complex local environment conditions (such as only after a full stop or newline). The underlying algorithms then produce and execute the required logic (very often in a more efficient manner then you could possible have done). 
+
+```R
+# Search for the two spelling of aluminium
+regex("alumin( |i)um")
+
+str <- "Is it aluminium or aluminum!"
+str_extract(str,regex("alumin( |i)um"))
+```
