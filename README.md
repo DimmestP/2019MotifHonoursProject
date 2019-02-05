@@ -74,7 +74,7 @@ Thankfully for you (but mainly for me), a summer stundent named Alex cleared up 
 3) Can you create a single table of genes who have at least one mutant with a significantly changed decay rate or synthesis rate? Can you get it to record the number of significant mutants for each gene?
 4) Make another table with one row per gene but with the logfold decay/synthesis rates across all mutants along the columns
 5) Plot a ggplot2 graph (with legend, x/y labels and title) of logfolds across all mutants for the top 5 genes with the highest mean synthesis rates. Ensure the genes are colour coded!
-![Example Graph](./images/taskOnePlot.jpeg)
+![Example Graph](./data/taskOnePlot.jpeg)
 ## String Searching 
 Rather obviously, huge swaths of data are stored in the versatle yet disordered string variable type. Compared to matrices of numbers, whose indices uniquely map elements with logically traceable relationships, strings tend to be massive dumps of various variable types and explanatory comments. In essence, strings are vital for human understanding but entirely intractable for computers. A fair amount of data analysis tasks revolve around slicing exceptionally long strings into computer edible chunks for further analysis. You could create painfully complex logic expressions with numerous nested for/if/while loops to account for every conceivable mispelling or capital letter. Or fortunately for us, we can familarise ourselves with the relatively universal syntax for searching for common structure and their similar variations in strings. 
 
