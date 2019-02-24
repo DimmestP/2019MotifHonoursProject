@@ -1,27 +1,31 @@
----
-title: "abhi_rmd_v1"
-author: "Abhishek Jain"
-date: "08th February 2019"
-output: 
-  md_document:
-    variant: markdown_github  
-editor_options: 
-  chunk_output_type: console
----
+Initation
+---------
 
-
-## Initation
-
-```{R Setup}
+``` r
 library(tidyverse)
+```
+
+    ## -- Attaching packages ---------------------------------- tidyverse 1.2.1 --
+
+    ## v ggplot2 3.1.0     v purrr   0.2.5
+    ## v tibble  2.0.1     v dplyr   0.7.8
+    ## v tidyr   0.8.2     v stringr 1.3.1
+    ## v readr   1.3.1     v forcats 0.3.0
+
+    ## -- Conflicts ------------------------------------- tidyverse_conflicts() --
+    ## x dplyr::filter() masks stats::filter()
+    ## x dplyr::lag()    masks stats::lag()
+
+``` r
 library(ggplot2)
 ```
 
-## Task 1.1: Load Datasets
+Task 1.1: Load Datasets
+-----------------------
 
-Loading the datasets dr_data.csv and sr_data.csv in objects by same names.
+Loading the datasets dr\_data.csv and sr\_data.csv in objects by same names.
 
-```{r Load Data}
+``` r
 #Error Handling for File not found
 #Syntax tryCatch( {Exprns}, error = function(any){ print("out") } )
 tryCatch({
@@ -36,7 +40,7 @@ tryCatch({
 )
 ```
 
-```{R Combine SR and DR}
+``` r
 #new dataframe containing both data together by Gene and Strain, 
 #Suffixes dr and sr for distinguishing values.
 combined_data <- merge(dr_data, sr_data,
@@ -44,11 +48,12 @@ combined_data <- merge(dr_data, sr_data,
                        suffixes = c("_dr", "_sr"))
 ```
 
-##Task 1.2: Calculate Mean SR and DR
+Task 1.2: Calculate Mean SR and DR
+----------------------------------
 
 Calculating the mean of decay (drm) and synthesis (srm) rates for each gene across all strains containing it. Unit is: Log2fold
 
-```{r Calculating Mean DR and SR}
+``` r
 com_data_m <- combined_data %>%
   #Remove duplicate rows
   distinct() %>%
@@ -61,13 +66,12 @@ com_data_m <- combined_data %>%
       ungroup()  
 ```
 
-## Task 1.3: Find Significant Changes
+Task 1.3: Find Significant Changes
+----------------------------------
 
-Create SINGLE table of genes that have one or more mutants with significantly changed decay rate OR synthesis rate? 
-Also, record the number of significant mutants for each gene.
+Create SINGLE table of genes that have one or more mutants with significantly changed decay rate OR synthesis rate? Also, record the number of significant mutants for each gene.
 
-
-```{R Significance2}
+``` r
 #Analyze this dataset
 sig_data <- com_data_m %>% 
   arrange(Gene)%>%
@@ -79,16 +83,14 @@ sig_data <- com_data_m %>%
           #Remove rows with no difference in significance between genes
           #distinct()%>%
       ungroup()
-               
 ```
 
-
-##Task 1.4: Log2Fold Readings in Gene vs Mutant Table 
+Task 1.4: Log2Fold Readings in Gene vs Mutant Table
+---------------------------------------------------
 
 Goal: To Make another table with one row per gene; with the logfold decay/synthesis rates across all mutants along the columns
 
-
-```{R Tranposing Decay Table}
+``` r
 #Analyze this dataset
 trans_data_dr <- com_data_m %>% 
     #get rid of other columns
@@ -102,11 +104,11 @@ trans_data_dr <- com_data_m %>%
 
       ungroup()%>%
     arrange(desc(drm)) #just for better handling
-
 ```
 
 Same for Synthesis
-```{R Tranposing Synthesis Table}
+
+``` r
 #Analyze this dataset
 trans_data_sr <- com_data_m %>% 
     #get rid of other columns
@@ -120,14 +122,12 @@ trans_data_sr <- com_data_m %>%
 
       ungroup()%>%
     arrange(desc(srm)) #just for better handling
-
 ```
 
+Task 1.5: Plotting
+------------------
 
-
-##Task 1.5: Plotting
-
-```{R Create Data for Plot}
+``` r
 #Start with dr data with mean
 top_data_dr <- trans_data_dr %>% 
     #get rid of other columns
@@ -150,28 +150,30 @@ com_data_plot <- com_data_m %>%
     select(Gene, Strain, Log2Fold_dr, Log2Fold_sr)
 
 plot_data <- gather(com_data_plot, key = "Type", value = "Log2fold", -Gene, -Strain)
-
 ```
 
-```{R ggPlot Synthesis Rate vs Genes}
+``` r
 #Create the plot
 (my_plot <- ggplot(plot_data, aes(x = Log2fold, y = Strain, colour = Gene, shape = Type)) +
    geom_point()
 )
 ```
 
-Seems to work although the number of points is too high. 
+    ## Warning: Removed 2 rows containing missing values (geom_point).
 
-ISSUES:
-  com_data_plot currently filters for all Top genes in either decay or synthesis rate while we only want the top ones from each of them. 
-  
+![](abhi_v1_files/figure-markdown_github/ggPlot%20Synthesis%20Rate%20vs%20Genes-1.png)
 
+Seems to work although the number of points is too high.
 
+ISSUES: com\_data\_plot currently filters for all Top genes in either decay or synthesis rate while we only want the top ones from each of them.
 
-## Task 2: Regex
+Task 2: Regex
+-------------
 
-## Task 2.1: Import Data
-```{R Import Chromosome 7}
+Task 2.1: Import Data
+---------------------
+
+``` r
 #Error Handling for File not found
 #Syntax tryCatch( {Exprns}, error = function(any){ print("out") } )
 tryCatch({
@@ -185,18 +187,23 @@ tryCatch({
                 getwd())  
           }
 )
-
 ```
 
-## Task 2.2: Counting frequency of "TGTTGGAATA"
+Task 2.2: Counting frequency of "TGTTGGAATA"
+--------------------------------------------
 
-Counting the number of occurrences of TGTTGGAATA in chr7 using stringr::str_count  
-```{R Look for TGTTGGAATA}
+Counting the number of occurrences of TGTTGGAATA in chr7 using stringr::str\_count
+
+``` r
 print(str_count(chr7, "TGTTGGAATA"))
 ```
 
-## Task 2.3: Finding Most common bases before and after "TGTTGGAATA" motifs
-```{R Finding Common Bases Before/After}
+    ## [1] 13
+
+Task 2.3: Finding Most common bases before and after "TGTTGGAATA" motifs
+------------------------------------------------------------------------
+
+``` r
 #create a df of start/stop indices for ".XXXX." motif
 motif_all <- data.frame(str_locate_all(chr7, ".TGTTGGAATA."))
 
@@ -212,16 +219,20 @@ motif_all <- motif_all %>%
   
 #Print Most common mutants using max() and min()
 max(motif_all$before)
-max(motif_all$after)
-
-
 ```
 
+    ## [1] "T"
 
-##Task 2.4: Finding single nt Mutants for "TGTTGGAATA
+``` r
+max(motif_all$after)
+```
 
+    ## [1] "T"
 
-```{R Mutants of TGTTGGAATA}
+Task 2.4: Finding single nt Mutants for "TGTTGGAATA
+---------------------------------------------------
+
+``` r
 motif <- "TGTTGGAATA"
 mutants <- c()
 
@@ -254,5 +265,32 @@ chr7_mutant_motifs <- chr7_mutants %>%
         
       
 print(chr7_mutant_motifs)
-
 ```
+
+    ##         motif
+    ## 1  CGTTGGAATA
+    ## 2  AGTTGGAATA
+    ## 3  TCTTGGAATA
+    ## 4  TTTTGGAATA
+    ## 5  TATTGGAATA
+    ## 6  TGCTGGAATA
+    ## 7  TGGTGGAATA
+    ## 8  TGATGGAATA
+    ## 9  TGTAGGAATA
+    ## 10 TGTGGGAATA
+    ## 11 TGTCGGAATA
+    ## 12 TGTTAGAATA
+    ## 13 TGTTTGAATA
+    ## 14 TGTTCGAATA
+    ## 15 TGTTGAAATA
+    ## 16 TGTTGCAATA
+    ## 17 TGTTGTAATA
+    ## 18 TGTTGGTATA
+    ## 19 TGTTGGAGTA
+    ## 20 TGTTGGATTA
+    ## 21 TGTTGGACTA
+    ## 22 TGTTGGAAGA
+    ## 23 TGTTGGAAAA
+    ## 24 TGTTGGAATG
+    ## 25 TGTTGGAATC
+    ## 26 TGTTGGAATT
