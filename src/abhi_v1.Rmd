@@ -11,7 +11,6 @@ editor_options:
 
 ## Initation
 
-
 ```{R Setup}
 library(tidyverse)
 library(ggplot2)
@@ -145,6 +144,7 @@ top_data_sr <- trans_data_sr %>%
 
 #Find the top5 Genes in actual data
 com_data_plot <- com_data_m %>%
+
   filter(Gene %in% top_data_dr$Gene | Gene %in% top_data_sr$Gene)%>%
     select(Gene, Strain, Log2Fold_dr, Log2Fold_sr)
 

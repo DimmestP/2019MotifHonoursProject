@@ -304,6 +304,7 @@ top_data_sr &lt;- trans_data_sr %&gt;%
 
 #Find the top5 Genes in actual data
 com_data_plot &lt;- com_data_m %&gt;%
+
   filter(Gene %in% top_data_dr$Gene | Gene %in% top_data_sr$Gene)%&gt;%
     select(Gene, Strain, Log2Fold_dr, Log2Fold_sr)
 
