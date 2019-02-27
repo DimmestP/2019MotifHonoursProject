@@ -1,0 +1,70 @@
+---
+title: "Abhi Motif Analaysis from Cheng et al 2017"
+author: "Abhishek Jain"
+date: "27th February 2019"
+output: 
+  md_document:
+    variant: markdown_github  
+editor_options: 
+  chunk_output_type: console
+---
+
+## Objectives: 
+
+  1. To create a script that calculates frequency of four specific motifs in yeast 3'UTR of all yeast gene (for each ORF)
+
+  2. Find synthesis and degradation rates of each gene from Sun et al. data and add it to motif frequency table for further analysis
+  
+
+Method:
+First, use cheng et al dataset (and previous dataframe codes) to create a table with wild type gene synthesis and decay rates
+
+## Initation
+
+```{R Setup}
+library(tidyverse)
+library(ggplot2)
+```
+
+## Task 1.1: Load Datasets
+
+Loading the datasets dr_data.csv and sr_data.csv in objects by same names.
+
+```{R 3 Prime UTRs}
+#Error Handling for File not found
+#Syntax tryCatch( {Exprns}, error = function(any){ print("out") } )
+tryCatch({
+            UTR_raw <- read_file("data/SGD_all_ORFs_3prime_UTRs.fsa")
+          },
+        error = function(x) 
+          { 
+            print(x)
+            cat("\nCurrent directory:",
+                getwd())  
+          }
+)
+
+UTR <- str_split(UTR_raw, ">sacCer3_ct_UserTrack_3545_")[[1]]
+
+```
+
+
+```{R SGD Motifs}
+data <- tibble(gene = str_sub(UTR, 1, 7), ATATTC = str_count(UTR, "ATATTAC"), TGCAT = str_count(UTR, "TGCAT"), TGTAAATA = str_count(UTR, "TGTAAATA"), TTTTTTA = str_count(UTR, "ATATTAC")) 
+
+data_c <- data %>%
+  group_by(gene)%>%
+    summarise_each(funs(max))
+  
+
+#motif_all <- data.frame(str_locate_all(UTR, "UserTrack_3545_Y......_SC"))
+
+```
+
+
+
+```{R}
+
+
+```
+
