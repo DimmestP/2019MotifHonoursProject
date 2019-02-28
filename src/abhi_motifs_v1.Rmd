@@ -19,22 +19,23 @@ editor_options:
 Method:
 First, use cheng et al dataset (and previous dataframe codes) to create a table with wild type gene synthesis and decay rates
 
-## Initation
+## Initation:
 
 ```{R Setup}
 library(tidyverse)
 library(ggplot2)
 ```
 
-## Task 1.1: Load Datasets
 
-Loading the datasets dr_data.csv and sr_data.csv in objects by same names.
 
-```{R 3 Prime UTRs}
+
+```{R Load Data}
 #Error Handling for File not found
 #Syntax tryCatch( {Exprns}, error = function(any){ print("out") } )
 tryCatch({
             UTR_raw <- read_file("data/SGD_all_ORFs_3prime_UTRs.fsa")
+            dr_raw <-read_tsv("data/sun_total_dr.txt")
+            #sr_raw <- read_table("data/sun_total_sr.txt")
           },
         error = function(x) 
           { 
@@ -44,27 +45,73 @@ tryCatch({
           }
 )
 
+#split single string into a vector to separate ORFs
+  #[[1]] converts list of vectors to single vector 
 UTR <- str_split(UTR_raw, ">sacCer3_ct_UserTrack_3545_")[[1]]
 
-```
+  #remove first empty element
+  UTR <- tail(UTR, -1)
 
+#change weird name of third column of wt degradation rate (to d_rate)
+colnames(dr_raw)[3] <- "d_rate"
 
-```{R SGD Motifs}
-data <- tibble(gene = str_sub(UTR, 1, 7), ATATTC = str_count(UTR, "ATATTAC"), TGCAT = str_count(UTR, "TGCAT"), TGTAAATA = str_count(UTR, "TGTAAATA"), TTTTTTA = str_count(UTR, "ATATTAC")) 
-
-data_c <- data %>%
-  group_by(gene)%>%
-    summarise_each(funs(max))
+#new smaller dataframe with first three cols
+dr_data <- dr_raw %>% 
+  select(orf, gene, d_rate)
+    
   
+```
 
-#motif_all <- data.frame(str_locate_all(UTR, "UserTrack_3545_Y......_SC"))
+Then, create a tibble with motifs for every gene
+
+```{R Freq of Motifs}
+
+#vector containing end location of every ORF name from ref UTRs
+pos = str_locate(UTR, "_")[2] - 1
+
+#new dataframe with ORF names, and frequency counts of some motifs  
+ref_motifs <- tibble(position = pos, orf = str_sub(UTR, 1, position), ATATTC = str_count(UTR, "ATATTAC"), TGCAT = str_count(UTR, "TGCAT"), TGTAAATA = str_count(UTR, "TGTAAATA"), TTTTTTA = str_count(UTR, "ATATTAC")) 
+
+#delete the postiiton column: Not required
+ref_motifs$position <- NULL
 
 ```
 
 
 
-```{R}
+```{R Shrink and add rates}
+#create a filtered dataset with consolidated ORFs
+ref_motifs_fil <- ref_motifs %>%
+    arrange(orf)%>%
+    group_by(orf)%>%
+      #keep max frequency of each motif 
+      summarise_all(funs(max))%>%
+    ungroup()%>%
+    #add decay rate by matching orf name to dr dataframe
+    mutate(dr = dr_data$d_rate[match(orf, dr_data$orf)])
 
 
 ```
+
+
+
+
+```{R Next Chunk}
+
+
+```
+
+
+
+##Notes and Issues: 
+
+Genes from Cheng et al have different names than SGD.  "sacCer3_ct_UserTrack_3545_YDR461W_SC_Transcript_00013696_Miura_2006 range=chrIV:1385287-1385434 5'pad=0 3'pad=0 strand=+ repeatMasking=none" 
+
+
+1. Number of Genes is very different: 
+
+    From SGD Data, Only 2827 obs. left (of 17903 initiatlly) after deduplicating ORFs of same genes [Taking max number of each motifs in each case]. 
+    Cheng et al. data had 4305 genes for synthesis and degradation rates among all mutants.
+
+
 
