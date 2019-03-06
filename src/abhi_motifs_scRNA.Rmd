@@ -1,0 +1,135 @@
+---
+title: "Abhi motif analysis with yscRNAseq"
+author: "Abhishek Jain"
+date: "6th March 2019"
+output: 
+  md_document:
+    variant: markdown_github  
+editor_options: 
+  chunk_output_type: console
+---
+
+## Objectives: 
+
+  1. To replicate Motif analysis from Cheng et al on half life for single cell variation data
+
+  2. Find coefficient of each gene from Nadal-Ribelles et al. 2019 data and add it to motif frequency table.
+  
+  3. Create a linear model for each motif frequency
+  
+
+## Initation:
+
+```{R Setup}
+library(tidyverse)
+library(ggplot2)
+```
+
+
+
+Update: Use the UTR dataset in Cheng et al. i.e. from Sun et al. 2013
+
+
+```{R Load Data}
+#Error Handling for File not found
+#Syntax tryCatch( {Exprns}, error = function(any){ print("out") } )
+tryCatch({
+            UTR_raw <- read_rds("data/Sun_mutation_UTRs.rds")
+            sc_raw <-read_tsv("data/YPD_scRNA.tab")
+          },
+        error = function(x) 
+          { 
+            print(x) #print actual error
+            cat("\nCurrent directory:",
+                getwd())  
+          }
+)
+
+UTR_3 <- UTR_raw$UTR3_seq
+
+
+  
+```
+
+Then, create a tibble with motifs for every gene:
+Note: This data already has motif counts but those are combined for 3' and 5' UTRs and are not individual.
+
+```{R Freq of Motifs}
+
+
+#new dataframe with ORF names, and frequency counts of some motifs  
+ref_motifs <- tibble(orf = UTR_raw$genename, ATATTC = str_count(UTR_3, "ATATTC"), TGCAT = str_count(UTR_3, "TGCAT"), TGTAAATA = str_count(UTR_3, "TGTAAATA"), TTTTTTA = str_count(UTR_3, "TTTTTTA"))
+
+
+```
+
+```{R Calculate CV}
+
+
+#new dataframe with ORF names, and frequency counts of some motifs  
+sc_long <- sc_raw %>%
+  arrange(geneName)%>%
+  gather(key = "cell", value = "transcripts", select = 3:129)%>%
+    group_by(geneName, comGeneName)%>%
+      mutate(CV2 = (mean(transcripts)/sd(transcripts))^2)%>%
+    ungroup()%>%
+  select(-cell, -transcripts)%>%
+  distinct()%>%
+  filter(!is.na(CV2))
+    
+
+```
+
+
+```{R Shrink and add rates}
+#add coefficient of variation
+ref_motifs_var <- ref_motifs %>%
+    mutate(CV2= sc_long$CV2[match(orf, sc_long$geneName)])
+
+
+```
+
+
+
+##Linear Modeling
+
+
+    
+```{R Setup Data for regression}
+motifs = c("TGTAAATA", "TGCAT", "TTTTTTA", "ATATTC")
+
+
+model_data <- ref_motifs_var %>%
+  #remove rows with NAs
+  filter(!is.na(CV2))%>%
+    #convert motif frequencies to presence and then to factor
+    mutate_at(motifs, funs(replace(., .>= 1, 1)))%>%
+    mutate_at(motifs, funs(factor(.) ))
+        
+
+```
+
+
+
+```{R Create Models}
+
+
+#to create a multiple linear model
+all_lm <- lm(data = model_data, CV2 ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA)
+
+summary(all_lm)
+plot(all_lm)
+
+
+```
+
+
+
+## ISSUES: 
+
+1. Should comGeneName be included in matching for ocmplete analysis? If so, how?
+
+
+
+
+
