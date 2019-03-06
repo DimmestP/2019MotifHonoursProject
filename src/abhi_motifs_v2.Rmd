@@ -1,0 +1,199 @@
+---
+title: "Abhi Motif Analaysis from Cheng et al 2017 v2"
+author: "Abhishek Jain"
+date: "1st March 2019"
+output: 
+  md_document:
+    variant: markdown_github  
+editor_options: 
+  chunk_output_type: console
+---
+
+## Objectives: 
+
+  1. To create a script that calculates frequency of four specific motifs in yeast 3'UTR of all yeast gene (for each ORF)
+
+  2. Find synthesis and degradation rates of each gene from Sun et al. data and add it to motif frequency table for further analysis
+  
+
+Method:
+First, use cheng et al dataset (and previous dataframe codes) to create a table with wild type gene synthesis and decay rates
+
+## Initation:
+
+```{R Setup}
+library(tidyverse)
+library(ggplot2)
+```
+
+
+
+Update: Use the UTR dataset in Cheng et al. i.e. from Sun et al. 2013
+
+
+```{R Load Data}
+#Error Handling for File not found
+#Syntax tryCatch( {Exprns}, error = function(any){ print("out") } )
+tryCatch({
+            UTR_raw <- read_rds("data/Sun_mutation_UTRs.rds")
+            dr_raw <-read_tsv("data/sun_total_dr.txt", locale = locale(decimal = ","))
+            #sr_raw <- read_table("data/sun_total_sr.txt")
+          },
+        error = function(x) 
+          { 
+            print(x) #print actual error
+            cat("\nCurrent directory:",
+                getwd())  
+          }
+)
+
+UTR_3 <- UTR_raw$UTR3_seq
+
+#change weird name of third column of wt degradation rate
+colnames(dr_raw)[3] <- "d_rate"
+
+#new smaller dataframe with first three cols
+dr_data <- dr_raw %>% 
+  dplyr::select(orf, gene, d_rate)
+    
+  
+```
+
+Then, create a tibble with motifs for every gene:
+Note: This data already has motif counts but those are combined for 3' and 5' UTRs and are not individual.
+
+```{R Freq of Motifs}
+
+
+#new dataframe with ORF names, and frequency counts of some motifs  
+ref_motifs <- tibble(orf = UTR_raw$genename, ATATTC = str_count(UTR_3, "ATATTC"), TGCAT = str_count(UTR_3, "TGCAT"), TGTAAATA = str_count(UTR_3, "TGTAAATA"), TTTTTTA = str_count(UTR_3, "TTTTTTA"))
+
+
+```
+
+
+
+```{R Shrink and add rates}
+#create a dataset with decayrate(dr) by matching orf name to dr dataframe
+#half life is given by ln2/DecayRate
+ref_motifs_rates <- ref_motifs %>%
+    mutate(dr = dr_data$d_rate[match(orf, dr_data$orf)], 
+           hlife = log(2)/dr)
+
+
+```
+
+
+Follwoing Boxplots are replication of Figure 4A in Cheng et al. 2017. 
+
+```{R Boxplots}
+#Convert frequency of motif into a >= limit
+ref_motifs_rates %>% mutate(ATATTC = replace(ATATTC, ATATTC >= 2, 2)) %>%
+ggplot(., aes(x = ATATTC, y = hlife)) +
+  geom_boxplot(aes(group = ATATTC)) + 
+  scale_x_continuous(breaks = c(0,1,2), labels = c("0", "1", ">=2")) +
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+
+
+
+ref_motifs_rates %>% mutate(TGCAT = replace(TGCAT, TGCAT >= 3, 3)) %>%
+ggplot(data = ., 
+       aes(x = TGCAT, y = hlife)) +
+  geom_boxplot(aes(group = TGCAT)) + 
+  scale_x_continuous(breaks = c(0,1,2,3), labels = c("0", "1", "2", ">=3"))+
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+
+ref_motifs_rates %>% mutate(TGTAAATA = replace(TGTAAATA, TGTAAATA >= 1, 1)) %>%
+ggplot(data = ., 
+       aes(x = TGTAAATA, y = hlife)) +
+  geom_boxplot(aes(group = TGTAAATA)) + 
+  scale_x_continuous(breaks = c(0,1), labels = c("0", ">=1"))+
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+
+ref_motifs_rates %>% mutate(TTTTTTA = replace(TTTTTTA, TTTTTTA >= 2, 2)) %>%
+ggplot(data = ., 
+       aes(x = TTTTTTA, y = hlife)) +
+  geom_boxplot(aes(group = TTTTTTA)) + 
+  scale_x_continuous(breaks = c(0,1,2), labels = c("0", "1", ">=2"))+
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+
+```
+
+##Linear Modeling
+
+
+
+##Notes and Issues: 
+
+    
+```{R Setup Data for regression}
+motifs = c("TGTAAATA", "TGCAT", "TTTTTTA", "ATATTC")
+
+
+model_data <- ref_motifs_rates %>%
+  #remove rows with NAs
+  filter(!is.na(hlife))%>%
+    #convert motif frequencies to presence and then to factor
+    mutate_at(motifs, funs(replace(., .>= 1, 1)))%>%
+    mutate_at(motifs, funs(factor(.) ))%>%
+      #add a column with log transformed hlife
+      mutate(log2_hlife = log2(hlife))
+        
+
+```
+
+
+
+```{R Create Models}
+
+#to create separate linear model for each motif
+each_model <- model_data %>%
+  gather("motif", "presence", ATATTC, TGTAAATA, TGCAT, TTTTTTA)%>%
+    group_by(motif)%>%
+      #create an lm for each motif - will be stored as a tibble
+      do(each_lm = lm(log2_hlife ~ presence, data = .))%>%
+    ungroup()
+
+#to create a multiple linear model
+all_lm <- lm(data =model_data, log2_hlife ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA)
+
+#use multiple LM to compute predicted hlife
+#note exp2 for anti log of log2(hlife)
+model_data_2 <- add_column(model_data, 
+                           pred_hlife = 2 ^ predict.lm(all_lm, model_data))
+
+
+
+```
+
+
+```{R Plot Linear Model}
+ggplot(data = model_data_2, aes(x = pred_hlife, y = hlife)) + 
+  geom_point() + 
+  geom_smooth() +
+  scale_x_continuous(trans = "log10") +
+  scale_y_continuous(trans = "log10")
+        
+#////-----------END------------////
+```
+
+
+## Questions: 
+
+1. How to enable values (median?) to show up on the boxplot
+
+2. Why is the range of predicted values so small? Is it because anything lower or higher isn't explained by our lm?
+
+JFF: Create multiple boxplots with slightly different parameters?
+
+
+
+
+
+
+
+
