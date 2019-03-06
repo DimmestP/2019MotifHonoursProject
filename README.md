@@ -98,3 +98,7 @@ Please go through [R for Data Science's](https://r4ds.had.co.nz/strings.html#int
 2) How many times does the TGTTGGAATA motif arise in the chromosome?
 3) What is most common base pair after/before this motif?
 4) Can you create a search to look for single nucleotide mutant of this motif?
+
+## Standard Statistical Tools
+As you have probabiliy noticed now in the various papers you have read, there are some standard methods for quantifying the different aspects of your data such as the significance of a particular result or the variance associated with your results. We will now briefly cover some of these tools; $R^2$, $CV^2$, Z-values, t-values / t-test.
+
