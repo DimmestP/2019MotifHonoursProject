@@ -163,7 +163,7 @@ all_lm <- lm(data =model_data, log2_hlife ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA)
 
 #use multiple LM to compute predicted hlife
 #note exp2 for anti log of log2(hlife)
-model_data_2 <- add_column(model_data, 
+model_data_pred <- add_column(model_data, 
                            pred_hlife = 2 ^ predict.lm(all_lm, model_data))
 
 
@@ -172,21 +172,57 @@ model_data_2 <- add_column(model_data,
 
 
 ```{R Plot Linear Model}
-ggplot(data = model_data_2, aes(x = pred_hlife, y = hlife)) + 
+ggplot(data = model_data_pred, aes(x = pred_hlife, y = hlife)) + 
   geom_point() + 
   geom_smooth() +
   scale_x_continuous(trans = "log10") +
   scale_y_continuous(trans = "log10")
         
-#////-----------END------------////
 ```
 
+##Cross Validation of Linear Models
+
+In this section, cross validation of linear model is performed by removing a group and then
+
+```{R Groupwise Linear Models}
+
+model_data_groups <- model_data
+#Create Randomly Sampled  Groups 1-10
+model_data_groups$groupID <- sample(1:10, size = nrow(model_data_groups), replace = TRUE) 
+
+#initialize a blank list
+list10 <- vector(mode = "list", length = 10)
+#initialize a tibble for storing lms and coefficients
+group_lms <- tibble(group_excl = 1:10, lm = list10, coeffs = list10)
+
+##Create Cross Validated Linear Models 
+for(i in 1:10){
+group_lms[[2]][[i]] <- model_data_groups %>%
+    #Exclude group i from data and create lm
+    filter(groupID != i)%>%
+    lm(log2_hlife ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA, data = .)
+
+#calculate and store coeffs of each lm in coeff column
+group_lms[[3]][[i]] <- summary(group_lms[[2]][[i]])$coefficient
+
+
+} 
+# ^: END OF FOR LOOP ^
+
+
+#print all coeffs
+group_lms$coeffs
+
+
+```
 
 ## Questions: 
 
-1. How to enable values (median?) to show up on the boxplot
+1. Best way to enable values (median?) to show up on the boxplot
 
-2. Why is the range of predicted values so small? Is it because anything lower or higher isn't explained by our lm?
+2. What parameters should be compared in groupwise lms; what would be the best way to visualize these together?
+
+ 
 
 JFF: Create multiple boxplots with slightly different parameters?
 
