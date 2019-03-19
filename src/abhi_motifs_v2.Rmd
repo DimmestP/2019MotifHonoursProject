@@ -4,8 +4,8 @@ author: "Abhishek Jain"
 date: "1st March 2019"
 output: 
   md_document:
-    variant: markdown_github  
-editor_options: 
+    variant: markdown_github
+editor_options:
   chunk_output_type: console
 ---
 
@@ -87,8 +87,10 @@ ref_motifs_rates <- ref_motifs %>%
 Follwoing Boxplots are replication of Figure 4A in Cheng et al. 2017. 
 
 ```{R Boxplots}
+par(mfrow = c(2,2))
 #Convert frequency of motif into a >= limit
-ref_motifs_rates %>% mutate(ATATTC = replace(ATATTC, ATATTC >= 2, 2)) %>%
+
+plot_ATATTC <- ref_motifs_rates %>% mutate(ATATTC = replace(ATATTC, ATATTC >= 2, 2)) %>%
 ggplot(., aes(x = ATATTC, y = hlife)) +
   geom_boxplot(aes(group = ATATTC)) + 
   scale_x_continuous(breaks = c(0,1,2), labels = c("0", "1", ">=2")) +
@@ -97,15 +99,14 @@ ggplot(., aes(x = ATATTC, y = hlife)) +
 
 
 
-ref_motifs_rates %>% mutate(TGCAT = replace(TGCAT, TGCAT >= 3, 3)) %>%
+plot_TGCAT <- ref_motifs_rates %>% mutate(TGCAT = replace(TGCAT, TGCAT >= 3, 3)) %>%
 ggplot(data = ., 
        aes(x = TGCAT, y = hlife)) +
   geom_boxplot(aes(group = TGCAT)) + 
   scale_x_continuous(breaks = c(0,1,2,3), labels = c("0", "1", "2", ">=3"))+
   scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
 
-
-ref_motifs_rates %>% mutate(TGTAAATA = replace(TGTAAATA, TGTAAATA >= 1, 1)) %>%
+plot_TGTAAATA <- ref_motifs_rates %>% mutate(TGTAAATA = replace(TGTAAATA, TGTAAATA >= 1, 1)) %>%
 ggplot(data = ., 
        aes(x = TGTAAATA, y = hlife)) +
   geom_boxplot(aes(group = TGTAAATA)) + 
@@ -113,21 +114,19 @@ ggplot(data = .,
   scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
 
 
-ref_motifs_rates %>% mutate(TTTTTTA = replace(TTTTTTA, TTTTTTA >= 2, 2)) %>%
+plot_TTTTTTA <- ref_motifs_rates %>% mutate(TTTTTTA = replace(TTTTTTA, TTTTTTA >= 2, 2)) %>%
 ggplot(data = ., 
        aes(x = TTTTTTA, y = hlife)) +
   geom_boxplot(aes(group = TTTTTTA)) + 
   scale_x_continuous(breaks = c(0,1,2), labels = c("0", "1", ">=2"))+
   scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
 
+gridExtra::grid.arrange(plot_ATATTC, plot_TGCAT, plot_TGTAAATA, plot_TTTTTTA, ncol=4)
 
 ```
 
 ##Linear Modeling
 
-
-
-##Notes and Issues: 
 
     
 ```{R Setup Data for regression}
@@ -162,7 +161,7 @@ each_model <- model_data %>%
 all_lm <- lm(data =model_data, log2_hlife ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA)
 
 #use multiple LM to compute predicted hlife
-#note exp2 for anti log of log2(hlife)
+#NOTE: exp2 for anti log of log2(hlife)
 model_data_pred <- add_column(model_data, 
                            pred_hlife = 2 ^ predict.lm(all_lm, model_data))
 
@@ -170,13 +169,14 @@ model_data_pred <- add_column(model_data,
 
 ```
 
+n.b. in the following plot, X and Y axis are NOT logfold
 
-```{R Plot Linear Model}
-ggplot(data = model_data_pred, aes(x = pred_hlife, y = hlife)) + 
+```{R Plot Predicted Linear Model}
+mean_hlife <- mean(model_data_pred$hlife)
+model_data_pred %>% ggplot(data = ., aes(x = pred_hlife, y = hlife)) + 
   geom_point() + 
   geom_smooth() +
-  scale_x_continuous(trans = "log10") +
-  scale_y_continuous(trans = "log10")
+  scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10") + labs(y = "Half Life", x = "Predicted Half Life") + geom_hline(aes(yintercept = mean(hlife)), col = "red") + geom_text(aes(x = 8, y = mean_hlife, label = paste("mean = ", round(mean_hlife, digits = 4))), vjust = -10, col = "red") 
         
 ```
 
@@ -185,6 +185,7 @@ ggplot(data = model_data_pred, aes(x = pred_hlife, y = hlife)) +
 In this section, cross validation of linear model is performed by removing a group and then
 
 ```{R Groupwise Linear Models}
+
 
 model_data_groups <- model_data
 #Create Randomly Sampled  Groups 1-10
@@ -196,19 +197,23 @@ list10 <- vector(mode = "list", length = 10)
 group_lms <- tibble(group_excl = 1:10, lm = list10, coeffs = list10)
 
 ##Create Cross Validated Linear Models 
+
+par(mfrow = c(2,5))
+
 for(i in 1:10){
-group_lms[[2]][[i]] <- model_data_groups %>%
+  group_lms[[2]][[i]] <- model_data_groups %>%
     #Exclude group i from data and create lm
     filter(groupID != i)%>%
     lm(log2_hlife ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA, data = .)
+  
+  #calculate and store coeffs of each lm in coeff column
+  group_lms[[3]][[i]] <- summary(group_lms[[2]][[i]])$coefficient
+  
 
-#calculate and store coeffs of each lm in coeff column
-group_lms[[3]][[i]] <- summary(group_lms[[2]][[i]])$coefficient
+  plot(group_lms$lm[[i]], which = 2, col= 2, main = paste("Excl. Group", i,  collapse = ""))
 
-
-} 
+}
 # ^: END OF FOR LOOP ^
-
 
 #print all coeffs
 group_lms$coeffs

@@ -37,8 +37,8 @@ Im impressed that you looked into error handling! Very useful if you are creatin
 #Error Handling for File not found
 #Syntax tryCatch( {Exprns}, error = function(any){ print("out") } )
 tryCatch({
-            dr_data <- read.csv("data/dr_data.csv")
-            sr_data <- read.csv("data/sr_data.csv")
+            dr_data <- read_csv("data/dr_data.csv")
+            sr_data <- read_csv("data/sr_data.csv")
           },
         error = function(x) 
           {
@@ -133,9 +133,7 @@ Same as above, also why are you grouping by gene?
 trans_data_dr <- com_data_m %>% 
     #get rid of other columns
     select(Gene, Strain, Log2Fold_dr, drm)%>%
-      #Grouping
-      group_by(Gene)%>%
-        
+
         #Transposing (Key,Value) 
         #Strains go to columns (Key); Log2Fold to row (values)
         spread(Strain, Log2Fold_dr)%>%

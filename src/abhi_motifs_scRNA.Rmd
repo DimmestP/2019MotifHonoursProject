@@ -2,10 +2,7 @@
 title: "Abhi motif analysis with yscRNAseq"
 author: "Abhishek Jain"
 date: "6th March 2019"
-output: 
-  md_document:
-    variant: markdown_github  
-editor_options: 
+editor_options:
   chunk_output_type: console
 ---
 
@@ -13,7 +10,7 @@ editor_options:
 
   1. To replicate Motif analysis from Cheng et al on half life for single cell variation data
 
-  2. Find coefficient of each gene from Nadal-Ribelles et al. 2019 data and add it to motif frequency table.
+  2. Find coefficient of variation of each gene from Nadal-Ribelles et al. 2019 data and add it to motif frequency table.
   
   3. Create a linear model for each motif frequency
   
@@ -26,8 +23,6 @@ library(ggplot2)
 ```
 
 
-
-Update: Use the UTR dataset in Cheng et al. i.e. from Sun et al. 2013
 
 
 ```{R Load Data}
@@ -71,11 +66,13 @@ sc_long <- sc_raw %>%
   arrange(geneName)%>%
   gather(key = "cell", value = "transcripts", select = 3:129)%>%
     group_by(geneName, comGeneName)%>%
-      mutate(CV2 = (mean(transcripts)/sd(transcripts))^2)%>%
+      #add coefficient of variation
+      mutate(CV = (sd(transcripts)/mean(transcripts)))%>%
     ungroup()%>%
+  #clean up
   select(-cell, -transcripts)%>%
   distinct()%>%
-  filter(!is.na(CV2))
+  filter(!is.na(CV))
     
 
 ```
@@ -84,7 +81,7 @@ sc_long <- sc_raw %>%
 ```{R Shrink and add rates}
 #add coefficient of variation
 ref_motifs_var <- ref_motifs %>%
-    mutate(CV2= sc_long$CV2[match(orf, sc_long$geneName)])
+    mutate(CV = sc_long$CV[match(orf, sc_long$geneName)])
 
 
 ```
@@ -101,7 +98,7 @@ motifs = c("TGTAAATA", "TGCAT", "TTTTTTA", "ATATTC")
 
 model_data <- ref_motifs_var %>%
   #remove rows with NAs
-  filter(!is.na(CV2))%>%
+  filter(!is.na(CV))%>%
     #convert motif frequencies to presence and then to factor
     mutate_at(motifs, funs(replace(., .>= 1, 1)))%>%
     mutate_at(motifs, funs(factor(.) ))
@@ -115,20 +112,18 @@ model_data <- ref_motifs_var %>%
 
 
 #to create a multiple linear model
-all_lm <- lm(data = model_data, CV2 ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA)
+all_lm <- lm(data = model_data, log(CV) ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA)
 
 summary(all_lm)
-plot(all_lm)
-
-
 ```
 
 
 
 ## ISSUES: 
 
-1. Should comGeneName be included in matching for ocmplete analysis? If so, how?
+1. Should comGeneName be included in matching for complete analysis? If so, how?
 
+2. Is calculation for gene-wise CV correct (as grouping is done by both GeneName and comGeneName)
 
 
 
