@@ -1,0 +1,111 @@
+---
+title: "Task 1 Sample Answers"
+author: "Samuel J Haynes"
+date: "5/2/19"
+output: html_notebook
+---
+
+```{r importRatesFromFiles}
+decayRates <- read.csv("../data/dr_data.csv")
+synthRates <- read.csv("../data/sr_data.csv")
+
+# read_csv import the file data as a dataframe variable type. Tidyverse functions are built with the tibble variable type in mind
+# If you want to understand the slight differences between a tibble and a dataframe copy vignette("tibble") into the console
+
+library(tidyverse)
+decayRates <- as_tibble(decayRates)
+synthRates <- as_tibble(synthRates)
+
+# alternatively you can import directly as a tibble use the tidyverse function read_csv
+decayRates <- read_csv("../data/dr_data.csv")
+synthRates <- read_csv("../data/sr_data.csv")
+
+# Find genes with enough data i.e. less than five mutants with NA logfolds
+goodDecayGenes <- decayRates %>%
+  group_by(Gene) %>%
+  summarise(naNum = sum(is.na(LogFold)), keep=(naNum < 5)) %>%
+  filter(keep)
+
+goodSynthGenes <- synthRates %>%
+  select(Gene,Strain,LogFold) %>%
+  group_by(Gene) %>%
+  summarise(naNum = sum(is.na(LogFold)), keep=(naNum < 5)) %>%
+  filter(keep)
+
+# keep only genes with enough data
+decayRates <- filter(decayRates, Gene %in% goodDecayGenes$Gene & Gene %in% goodSynthGenes$Gene)
+
+synthRates <- filter(synthRates, Gene %in% goodDecayGenes$Gene & Gene %in% goodSynthGenes$Gene)
+```
+
+```{r calculateMeanRates}
+#Calculate each genes decay rate mean, removing any poor data
+ meanDecayRates <- decayRates %>%
+  select(LogFold,Gene,Strain) %>% 
+  group_by(Gene) %>% 
+  summarise(mean = mean(LogFold,na.rm = TRUE)) 
+
+#Calculate each genes decay rate mean, removing any poor data
+meanSynthRates <- synthRates %>%
+  select(LogFold,Gene,Strain) %>% 
+  group_by(Gene) %>% 
+  summarise(mean = mean(LogFold,na.rm = TRUE)) 
+```
+
+```{r significantMutants}
+# If a gene has any mutant with an entry other than "not" in the significance column then keep
+significantDecay <- decayRates %>%
+  select(Gene,Strain,Significance) %>%
+  group_by(Gene) %>%
+  summarise(mutantDecayChange = sum(Significance != "not",na.rm = TRUE), keep=(mutantDecayChange != 0)) %>%
+  filter(keep)
+
+# Repeat for synthetic rates
+significantSynth <- synthRates %>%
+  select(Gene,Strain,Significance) %>%
+  group_by(Gene) %>%
+  summarise(mutantSynthChange = sum(Significance != "not",na.rm = TRUE), keep=(mutantSynthChange != 0)) %>%
+  filter(keep)
+
+# Combine the results of the significant synth and decay mutants
+significantGenes <- inner_join(significantSynth,significantDecay) %>%
+  select(Gene,mutantSynthChange,mutantDecayChange)
+```
+```{r rowToColumn}
+#arrange the tibble to long form for easy plotting
+spreadDecay <- decayRates %>%
+  select(Gene,Strain,LogFold) %>%
+  spread(key = Strain, value = LogFold)
+
+spreadSynth <- synthRates %>%
+  select(Gene,Strain,LogFold) %>%
+  spread(key = Strain, value = LogFold)
+```
+
+```{r ggplot2Task}
+# Select the 5 genes with the highest mean decay/synth rates
+topDecayGenes <- meanDecayRates %>% 
+      top_n(5,mean)
+  
+topSynthGenes <- meanSynthRates %>% 
+      top_n(5,mean)
+
+# Collect the rate per mutant for the top 5 mean decay/synth genes
+decayGenesToPlot <- decayRates %>%
+  select(Gene,Strain,LogFold) %>%
+  filter(Gene %in% topDecayGenes$Gene)
+
+synthGenesToPlot <- synthRates %>%
+  select(Gene,Strain,LogFold) %>%
+  filter(Gene %in% topSynthGenes$Gene)
+
+# Combine decay/synth genes into one table suitable for easy plotting
+colnames(decayGenesToPlot) <- c("Gene","Strain","Decay")
+colnames(synthGenesToPlot) <- c("Gene","Strain","Synth")
+genesToPlot <- full_join(decayGenesToPlot,synthGenesToPlot) %>%
+  gather(Decay,Synth,key = "DecaySynth",value = "Rate")
+
+# Plot the data
+ggplot(genesToPlot,aes(x=Rate,y=Strain,shape=DecaySynth,color=Gene)) + geom_point() + ggtitle("Example Graph") + theme(plot.title = element_text(hjust = 0.5))
+
+```

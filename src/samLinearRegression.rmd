@@ -1,0 +1,62 @@
+---
+title: "Linear Regression on Sun et al Dataset"
+author: "Samuel Joseph Haynes"
+date: "7th March 2019"
+output: 
+  md_document:
+    variant: markdown_github  
+---
+
+```{r dataFormatAndImport}
+# Import data from separate sources and merge to create the number of found motifs per gene and corresponding decay rate
+UTRRaw <- read_rds("../data/Sun_mutation_UTRs.rds")
+drRaw <-read_tsv("../data/sun_total_dr.txt", locale = locale(decimal = ","))
+            
+UTR3 <- UTRRaw$UTR3_seq
+
+colnames(drRaw)[3] <- "d_rate"
+
+drData <- drRaw %>% 
+  dplyr::select(orf, gene, d_rate)
+
+refMotifs <- tibble(orf = UTRRaw$genename, ATATTC = str_count(UTR3, "ATATTC"), TGCAT = str_count(UTR3, "TGCAT"), TGTAAATA = str_count(UTR3, "TGTAAATA"), TTTTTTA = str_count(UTR3, "TTTTTTA"))
+
+refMotifsRates <- refMotifs %>%
+  mutate(dr = drData$d_rate[match(orf, drData$orf)], hlife = log(2)/dr) %>%
+  filter(is.finite(dr))
+```
+
+```{r motifLinearRegression}
+motifLinearRegression <- lm(log2(hlife) ~ TGCAT + TGTAAATA + ATATTC + TTTTTTA, refMotifsRates)
+
+summary(motifLinearRegression)
+
+```
+
+```{r 10foldCrossvalidation}
+# Split the refMotifsRates tibble into 10 randomly sampled groups
+tempRefMotifsRates <- refMotifsRates
+refMotifsRatesGrouped <- tibble(orf = "1")
+for(i in 1:10){
+randomisedGroup <- sample_n(tempRefMotifsRates,356)
+refMotifsRatesGrouped <- randomisedGroup %>%
+  mutate(group = i) %>%
+  full_join(refMotifsRatesGrouped) %>%
+  filter(is.finite(group)) 
+tempRefMotifsRates <- tempRefMotifsRates %>%
+  filter(!(orf %in% randomisedGroup$orf))
+}
+
+x <- function(refMotifsRates){ lm(log2(hlife) ~ TGCAT + TGTAAATA + ATATTC + TTTTTTA, refMotifsRates) }
+
+# complete linear regression by random groups
+allGroups <- tibble(group = c(1:10))
+for(i in 1:10){
+  currentGroup <- allGroups %>%
+    filter(group != i)
+  
+refMotifsRatesGrouped %>%
+  filter(group %in% currentGroup$group) %>%
+  do(output = x(.))
+}
+```

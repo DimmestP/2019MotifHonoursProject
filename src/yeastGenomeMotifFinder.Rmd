@@ -1,0 +1,31 @@
+---
+title: "Yeast Genome 3'UTR Motif Finder"
+output: html_notebook
+---
+
+```{r importFile}
+library(tidyverse)
+library(seqinr)
+UTR_raw <- read_file("../data/SGD_all_ORFs_3prime_UTRs.fsa.txt")
+UTR <- str_split(UTR_raw, ">sacCer3_ct_UserTrack_3545_")[[1]]
+UTR <- tail(UTR, -1)
+colnames(dr_raw)[3] <- "d_rate"
+pos = str_locate(UTR, "_")[2] - 1
+ref_motifs <- tibble(position = pos, orf = str_sub(UTR, 1, position), ATATTC = str_count(UTR, "ATATTAC"), TGCAT = str_count(UTR, "TGCAT"), TGTAAATA = str_count(UTR, "TGTAAATA"), TTTTTTA = str_count(UTR, "ATATTAC")) 
+ref_motifs$position <- NULL
+
+ref_motifs_fil <- ref_motifs %>%
+    arrange(orf)%>%
+    group_by(orf)%>%
+      #keep max frequency of each motif 
+      summarise_all(funs(max))%>%
+    ungroup()%>%
+    #add decay rate by matching orf name to dr dataframe
+    mutate(dr = dr_data$d_rate[match(orf, dr_data$orf)])
+
+
+x <- left_join(Sun_mutation_UTRs,sun_mutants_synt,by="genename") %>%
+  summarise(sum(is.na(synt)))
+y <- sun_mutants_synt %>%
+  summarise(sum(is.na(synt)))
+```
