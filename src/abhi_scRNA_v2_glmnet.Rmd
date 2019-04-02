@@ -1,0 +1,82 @@
+---
+title: "abhi_scRNA_v2_glmnet"
+author: "Abhishek Jain"
+date: "1 April 2019"
+output: 
+  md_document:
+    variant: markdown_github
+editor_options:
+  chunk_output_type: console
+---
+
+
+## Objectives: 
+
+  1. Repeat CV calculation like before
+  2. Import and use a motifs list to generate motifs table (Using Regex)
+  3. Use glmnet for penalised regression analysis of effect on CV^2
+  
+## Initation:
+
+```{R Setup}
+library(tidyverse)
+library(ggplot2)
+```
+
+
+
+
+```{R Load Data}
+#Error Handling for File not found
+#Syntax tryCatch( {Exprns}, error = function(any){ print("out") } )
+tryCatch({
+            UTR_raw <- read_rds("data/Sun_mutation_UTRs.rds")
+            sc_raw <-read_tsv("data/YPD_scRNA.tab")
+            motifs_raw <- scan("data/list_motifs.txt", character())
+          },
+        error = function(x) 
+          { 
+            print(x) #print actual error
+            cat("\nCurrent directory:",
+                getwd())  
+          }
+)
+
+#Get sequences from UTR_raw in a separate vector
+UTR_3 <- UTR_raw$UTR3_seq
+
+
+  
+```
+
+Then, create a tibble with motifs for every gene:
+Note: Raw data already had motif counts but were combined for 3' and 5' UTRs and are not individual.
+
+```{R Freq of Motifs}
+
+motifs <- motifs_raw %>% str_replace_all(c("W" = "(A|T)", "S" = "(C|G)", "M" = "(A|C)", "K" = "(G|T)", "R" = "(A|G)", "Y" = "(C|T)", "B" = "(C|G|T)", "D" = "(A|G|T)", "H" = "(A|C|T)", "V" = "(A|C|G)", "N" = "(A|C|G|T)"))
+
+#Initate ref tibble and store gene names
+ref_motifs <- tibble(geneName = UTR_raw$genename)
+
+
+#Search and add frequency of each c(motif) as a column in ref dataset
+for (i in 1:length(motifs)){
+ref_motifs <- mutate(.data = ref_motifs, 
+                      !!motifs[i] := str_count(UTR_3, motifs[i]))
+}
+
+
+```
+
+
+
+```{R Test, eval=FALSE, include=FALSE}
+test <- c("ATAYTC", "TGWCKS", "TBWAWAYA", "NTMTTDWTA", "TNG", "NNNNNN")
+test_seq <- "ATGGAGCAAAATGGCCTTGACCACGACAGCAGATCTAGCATC"
+
+test_r <- test %>% str_replace_all(c("W" = "(A|T)", "S" = "(C|G)", "M" = "(A|C)", "K" = "(G|T)", "R" = "(A|G)", "Y" = "(C|T)", "B" = "(C|G|T)", "D" = "(A|G|T)", "H" = "(A|C|T)", "V" = "(A|C|G)", "N" = "(A|C|G|T)"))
+
+str_count(test_seq, test_r)
+
+```

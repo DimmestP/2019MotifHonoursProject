@@ -192,9 +192,8 @@ model_data_groups <- model_data
 model_data_groups$groupID <- sample(1:10, size = nrow(model_data_groups), replace = TRUE) 
 
 #initialize a blank list
-list10 <- vector(mode = "list", length = 10)
 #initialize a tibble for storing lms and coefficients
-group_lms <- tibble(group_excl = 1:10, lm = list10, coeffs = list10)
+group_lms <- tibble(group_excl = 1:10, lm = vector(mode = "list", length = 10), coeffs = vector(mode = "list", length = 10))
 
 ##Create Cross Validated Linear Models 
 

@@ -2,6 +2,9 @@
 title: "Abhi motif analysis with yscRNAseq"
 author: "Abhishek Jain"
 date: "6th March 2019"
+output: 
+  md_document:
+    variant: markdown_github
 editor_options:
   chunk_output_type: console
 ---
@@ -40,6 +43,7 @@ tryCatch({
           }
 )
 
+#just to simplify UTR_raw
 UTR_3 <- UTR_raw$UTR3_seq
 
 
@@ -49,82 +53,167 @@ UTR_3 <- UTR_raw$UTR3_seq
 Then, create a tibble with motifs for every gene:
 Note: This data already has motif counts but those are combined for 3' and 5' UTRs and are not individual.
 
+
 ```{R Freq of Motifs}
 
+#Remove the following line if importing motifs from file
+motifs = c("ATATTC", "TGCAT", "TGTAAATA", "TTTTTTA")
 
-#new dataframe with ORF names, and frequency counts of some motifs  
-ref_motifs <- tibble(orf = UTR_raw$genename, ATATTC = str_count(UTR_3, "ATATTC"), TGCAT = str_count(UTR_3, "TGCAT"), TGTAAATA = str_count(UTR_3, "TGTAAATA"), TTTTTTA = str_count(UTR_3, "TTTTTTA"))
+#Initate ref tibble and store gene names
+ref_motifs <- tibble(geneName = UTR_raw$genename)
+
+
+#Search and add frequency of each c(motif) as a column in ref dataset
+for (i in 1:length(motifs)){
+ref_motifs <- mutate(.data = ref_motifs, 
+                      !!motifs[i] := str_count(UTR_3, motifs[i]))
+}
+
+#new dataframe with gene names, and frequency counts of some motifs  
+#ref_motifs <- tibble(geneName = UTR_raw$genename, ATATTC = str_count(UTR_3, "ATATTC"), TGCAT = str_count(UTR_3, "TGCAT"), TGTAAATA = str_count(UTR_3, "TGTAAATA"), TTTTTTA = str_count(UTR_3, "TTTTTTA"))
 
 
 ```
 
+NOTE: Above chunk has been updated for accepting a vector of motifs instead of explicitly defined ones.
+
 ```{R Calculate CV}
 
-
-#new dataframe with ORF names, and frequency counts of some motifs  
-sc_long <- sc_raw %>%
-  arrange(geneName)%>%
-  gather(key = "cell", value = "transcripts", select = 3:129)%>%
-    group_by(geneName, comGeneName)%>%
-      #add coefficient of variation
-      mutate(CV = (sd(transcripts)/mean(transcripts)))%>%
-    ungroup()%>%
-  #clean up
-  select(-cell, -transcripts)%>%
-  distinct()%>%
-  filter(!is.na(CV))
-    
+#new dataframe with cell to cell differences from sc_raw data
+sc_summ <- sc_raw %>%
+  select(-comGeneName)%>%
+  gather(key = "cell", value = "transcripts", select = -geneName)%>%
+    group_by(geneName)%>%
+      #add columns with different measures of variation
+      summarize(mean_t = mean(transcripts), 
+             stdev_t = sd(transcripts),
+             variance_t = var(transcripts))%>%
+      filter(mean_t > 0)%>%
+      mutate(VMR_t = variance_t/mean_t,
+             CV_t = stdev_t/mean_t,
+             CV2_t = (CV_t^2))
 
 ```
 
 
 ```{R Shrink and add rates}
 #add coefficient of variation
-ref_motifs_var <- ref_motifs %>%
-    mutate(CV = sc_long$CV[match(orf, sc_long$geneName)])
+ref_motifs_t <- left_join(ref_motifs, sc_summ, by = "geneName")%>%
+  filter(is.finite(mean_t))
 
+```
+
+##Boxplots
+
+To Visualize change in CV^2 with presence and frequency of Motifs
+
+```{R Boxplots}
+par(mfrow = c(2,2))
+#Convert frequency of motif into a >= limit
+
+plot_ATATTC <- ref_motifs_t %>% mutate(ATATTC = replace(ATATTC, ATATTC >= 2, 2)) %>%
+ggplot(., aes(x = ATATTC, y = CV2_t)) +
+  geom_boxplot(aes(group = ATATTC)) + 
+  scale_x_continuous(breaks = c(0,1,2), labels = c("0", "1", ">=2")) +
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+
+
+plot_TGCAT <- ref_motifs_t %>% mutate(TGCAT = replace(TGCAT, TGCAT >= 3, 3)) %>%
+ggplot(data = ., 
+       aes(x = TGCAT, y = CV2_t)) +
+  geom_boxplot(aes(group = TGCAT)) + 
+  scale_x_continuous(breaks = c(0,1,2,3), labels = c("0", "1", "2", ">=3"))+
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+plot_TGTAAATA <- ref_motifs_t %>% mutate(TGTAAATA = replace(TGTAAATA, TGTAAATA >= 1, 1)) %>%
+ggplot(data = ., 
+       aes(x = TGTAAATA, y = CV2_t)) +
+  geom_boxplot(aes(group = TGTAAATA)) + 
+  scale_x_continuous(breaks = c(0,1), labels = c("0", ">=1"))+
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+
+plot_TTTTTTA <- ref_motifs_t %>% mutate(TTTTTTA = replace(TTTTTTA, TTTTTTA >= 2, 2)) %>%
+ggplot(data = ., 
+       aes(x = TTTTTTA, y = CV2_t)) +
+  geom_boxplot(aes(group = TTTTTTA)) + 
+  scale_x_continuous(breaks = c(0,1,2), labels = c("0", "1", ">=2"))+
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+gridExtra::grid.arrange(plot_ATATTC, plot_TGCAT, plot_TGTAAATA, plot_TTTTTTA, ncol=4)
 
 ```
 
 
 
 ##Linear Modeling
-
-
     
 ```{R Setup Data for regression}
 motifs = c("TGTAAATA", "TGCAT", "TTTTTTA", "ATATTC")
 
 
-model_data <- ref_motifs_var %>%
-  #remove rows with NAs
-  filter(!is.na(CV))%>%
-    #convert motif frequencies to presence and then to factor
-    mutate_at(motifs, funs(replace(., .>= 1, 1)))%>%
-    mutate_at(motifs, funs(factor(.) ))
+model_data <- ref_motifs_t %>%
+  #convert motif frequencies to presence and then to factor
+  mutate_at(motifs, funs(replace(., .>= 1, 1)))%>%
+  mutate_at(motifs, funs(factor(.) ))
         
 
 ```
-
 
 
 ```{R Create Models}
 
 
 #to create a multiple linear model
-all_lm <- lm(data = model_data, log(CV) ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA)
+various_lm <- model_data %>%
+  gather("measure","value", mean_t, stdev_t, variance_t, VMR_t, CV_t, CV2_t)%>%
+    group_by(measure)%>%  
+      do(lm_t = lm(data = ., log(value) ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA))%>%
+    ungroup()
 
-summary(all_lm)
+
 ```
+
+
+```{R Normal Test}
+library(nortest)
+#lapply(various_lm$lm_t, logLik)
+lms_compared <- various_lm %>% 
+  mutate(resi_m = lapply(lm_t, resid), jarque_m = as_vector(map(lapply(resi_m, moments::jarque.test),1)), loglik_m = sapply(lm_t, logLik), aic_m = sapply(lm_t, AIC))%>% 
+    arrange(aic_m)%>% select(-lm_t, -resi_m)
+```
+
+
+```{R Likelihood Test}
+library(nortest)
+#lapply(various_lm$lm_t, logLik)
+lms_compared <- various_lm %>% 
+  mutate(loglik_m = sapply(lm_t, logLik), aic_m = sapply(lm_t, AIC))%>% 
+    arrange(aic_m)
+
+
+lapply(various_lm$lm_t, summary)
+
+par(mfrow = c(2,3))
+for (i in 1:6){
+  plot(lms_compared$lm_t[[i]], 
+       which = 2, 
+       main = paste("Measure: log(", lms_compared$measure[i], ")", sep = "",  collapse = ""))
+}
+
+lms_compared
+
+
+```
+
 
 
 
 ## ISSUES: 
 
-1. Should comGeneName be included in matching for complete analysis? If so, how?
-
-2. Is calculation for gene-wise CV correct (as grouping is done by both GeneName and comGeneName)
-
+1. Above code shows that model with lowest AIC has least normally distributed errors
+2. NOTE: I have modified 
 
 
 
