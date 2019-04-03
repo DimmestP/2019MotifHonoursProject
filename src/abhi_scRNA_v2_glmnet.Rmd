@@ -21,6 +21,7 @@ editor_options:
 ```{R Setup}
 library(tidyverse)
 library(ggplot2)
+library(glmnet)
 ```
 
 
@@ -32,7 +33,7 @@ library(ggplot2)
 tryCatch({
             UTR_raw <- read_rds("data/Sun_mutation_UTRs.rds")
             sc_raw <-read_tsv("data/YPD_scRNA.tab")
-            motifs_raw <- scan("data/list_motifs.txt", character())
+            motifs_raw <- scan("data/list_motifs_2.txt", character())
           },
         error = function(x) 
           { 
@@ -69,6 +70,59 @@ ref_motifs <- mutate(.data = ref_motifs,
 
 ```
 
+
+
+```{R Calculate CV}
+
+#new dataframe with cell to cell differences from sc_raw data
+sc_summ_i <- sc_raw %>%
+  select(-comGeneName)%>%
+  gather(key = "cell", value = "transcripts", select = -geneName)%>%
+    group_by(geneName)%>%
+      #add columns with different measures of variation
+      summarize(mean_t = mean(transcripts), 
+             stdev_t = sd(transcripts),
+             variance_t = var(transcripts))%>%
+      filter(mean_t > 0)%>%
+      mutate(VMR_t = variance_t/mean_t,
+             CV_t = stdev_t/mean_t,
+             CV2_t = (CV_t^2))
+
+sc_summ <- sc_summ_i %>%
+  select(geneName, CV2_t)
+```
+
+```{R Shrink and add rates}
+#add coefficient of variation
+ref_motifs_t <- left_join(ref_motifs, sc_summ, by = "geneName")%>%
+  filter(is.finite(CV2_t))
+
+```
+
+```{R Setup Data for regression}
+#motifs = c("TGTAAATA", "TGCAT", "TTTTTTA", "ATATTC")
+
+model_data <- ref_motifs_t %>%
+  #convert motif frequencies to presence and then to factor
+  mutate_at(motifs, funs(replace(., .>= 1, 1)))%>%
+  mutate_at(motifs, funs(factor(.) ))
+        
+
+```
+
+```{R Test, eval=FALSE, include=FALSE}
+
+motifs_matrix <- model_data %>%
+  select(-geneName, -CV2_t) %>%
+  as.matrix()
+
+#glmtest <- glmnet(motifs_matrix, y = model_data$CV2_t)
+#plot(glmtest, xvar="lambda")
+
+cv.glmtest <- cv.glmnet(x = motifs_matrix, y = model_data$CV2_t)
+#plot(cv.glmtest)
+
+```
 
 
 ```{R Test, eval=FALSE, include=FALSE}
