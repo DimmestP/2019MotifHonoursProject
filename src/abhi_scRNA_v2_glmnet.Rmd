@@ -33,7 +33,7 @@ library(glmnet)
 tryCatch({
             UTR_raw <- read_rds("data/Sun_mutation_UTRs.rds")
             sc_raw <-read_tsv("data/YPD_scRNA.tab")
-            motifs_raw <- scan("data/list_motifs_2.txt", character())
+            motifs_raw <- scan("data/list_motifs.txt", character())
           },
         error = function(x) 
           { 
@@ -105,7 +105,9 @@ ref_motifs_t <- left_join(ref_motifs, sc_summ, by = "geneName")%>%
 model_data <- ref_motifs_t %>%
   #convert motif frequencies to presence and then to factor
   mutate_at(motifs, funs(replace(., .>= 1, 1)))%>%
-  mutate_at(motifs, funs(factor(.) ))
+  mutate_at(motifs, funs(factor(.) ))%>%
+  mutate(log_CV2_t = log(CV2_t))%>%
+  select(-CV2_t)
         
 
 ```
@@ -113,19 +115,45 @@ model_data <- ref_motifs_t %>%
 ```{R Penalised regression}
 
 motifs_matrix <- model_data %>%
-  select(-geneName, -CV2_t) %>%
-  as.matrix()
+  select(-geneName, -log_CV2_t) %>%
+  data.matrix()
 
-#glmtest <- glmnet(motifs_matrix, y = model_data$CV2_t)
-#plot(glmtest, xvar="lambda")
+  motifs_glm <- glmnet(motifs_matrix, y = model_data$log_CV2_t)
+plot(motifs_glm, xvar="lambda")
 
-cv.glmtest <- cv.glmnet(x = motifs_matrix, y = model_data$CV2_t)
-#plot(cv.glmtest)
+#Cross Validated Glmnet to get lambda.min for extracting coeffs 
+motifs_cv_glm <- cv.glmnet(x = motifs_matrix, y = model_data$log_CV2_t)
+plot(motifs_cv_glm)
+
+coefs <- coef(motifs_cv_glm, s = "lambda.min")
+#Create a tibble of coefficients ordered by absolute value
+sig_glms <- tibble(
+  motif_glmnet = rownames(data.matrix(coefs))[data.matrix(coefs) != 0],
+  coeff_glmnet = data.matrix(coefs)[data.matrix(coefs) != 0]) %>%
+  arrange(desc(abs(coeff_glmnet)))
 
 ```
 
 
 ```{R Test, eval=FALSE, include=FALSE}
+#JFF
 
+x <- motifs_matrix
+y <- model_data$log_CV2_t
 
+cv1=cv.glmnet(x,y,alpha=1)
+cv.5=cv.glmnet(x,y,alpha=0.1)
+cv0=cv.glmnet(x,y,alpha=0)
+plot(cv.5)
+
+par(mfrow=c(2,2))
+plot(cv1);plot(cv.5);plot(cv0)
+plot(log(cv1$lambda),cv1$cvm,pch=19,col="red",xlab="log(Lambda)",ylab=cv1$name)
+points(log(cv.5$lambda),cv.5$cvm,pch=19,col="grey")
+points(log(cv0$lambda),cv0$cvm,pch=19,col="blue")
+legend("topleft",legend=c("alpha= 1","alpha= .5","alpha 0"),pch=19,col=c("red","grey","blue"))
+
+```
+
+```{R Test2}
 ```
