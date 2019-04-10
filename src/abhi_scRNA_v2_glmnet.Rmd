@@ -1,7 +1,7 @@
 ---
 title: "abhi_scRNA_v2_glmnet"
 author: "Abhishek Jain"
-date: "1 April 2019"
+date: "10th April 2019"
 output: 
   md_document:
     variant: markdown_github
@@ -9,12 +9,18 @@ editor_options:
   chunk_output_type: console
 ---
 
+## Updates 10/04/19:
 
+  1. Replaced names of motifs from regex format to IUPAC alphabet
+  2. Fixed motifs_matrix using strtoi for proper 0 and 1 representation
+  3. Added chunk for creating GeneLists for GO analysis 
+  
 ## Objectives: 
 
   1. Repeat CV calculation like before
   2. Import and use a motifs list to generate motifs table (Using Regex)
   3. Use glmnet for penalised regression analysis of effect on CV^2
+  4. Compile list of genes for each glmnet motif for GO Term Analysis
   
 ## Initation:
 
@@ -23,7 +29,6 @@ library(tidyverse)
 library(ggplot2)
 library(glmnet)
 ```
-
 
 
 
@@ -64,18 +69,21 @@ ref_motifs <- tibble(geneName = UTR_raw$genename)
 #Search and add frequency of each c(motif) as a column in ref dataset
 for (i in 1:length(motifs)){
 ref_motifs <- mutate(.data = ref_motifs, 
-                      !!motifs[i] := str_count(UTR_3, motifs[i]))
+                      !!motifs_raw[i] := str_count(UTR_3, motifs[i]))
 }
 
 
 ```
 
 
+Calculate various cell to cell variation estimates; 
+
+  Note: previous version used linear model for each measure and showed best performance for log(CV^2)
 
 ```{R Calculate CV}
 
 #new dataframe with cell to cell differences from sc_raw data
-sc_summ_i <- sc_raw %>%
+sc_summ_various <- sc_raw %>%
   select(-comGeneName)%>%
   gather(key = "cell", value = "transcripts", select = -geneName)%>%
     group_by(geneName)%>%
@@ -88,7 +96,7 @@ sc_summ_i <- sc_raw %>%
              CV_t = stdev_t/mean_t,
              CV2_t = (CV_t^2))
 
-sc_summ <- sc_summ_i %>%
+sc_summ <- sc_summ_various %>%
   select(geneName, CV2_t)
 ```
 
@@ -104,18 +112,23 @@ ref_motifs_t <- left_join(ref_motifs, sc_summ, by = "geneName")%>%
 
 model_data <- ref_motifs_t %>%
   #convert motif frequencies to presence and then to factor
-  mutate_at(motifs, funs(replace(., .>= 1, 1)))%>%
-  mutate_at(motifs, funs(factor(.) ))%>%
+  mutate_at(motifs_raw, funs(replace(., .>= 1, 1)))%>%
+  mutate_at(motifs_raw, funs(factor(.) ))%>%
   mutate(log_CV2_t = log(CV2_t))%>%
   select(-CV2_t)
         
 
 ```
 
+Following section performs lasso regression using glmnet. First, a model matrix is created for variables (motifs), then a glmnet is performed on response (log_CV2_t) yielding a tibble from cross validated glmnet containing each motif's coefficient. 
+
+Then motifs are filtered for non-zero coefficients.
+
 ```{R Penalised regression}
 
 motifs_matrix <- model_data %>%
   select(-geneName, -log_CV2_t) %>%
+  sapply(., strtoi)%>%
   data.matrix()
 
   motifs_glm <- glmnet(motifs_matrix, y = model_data$log_CV2_t)
@@ -125,35 +138,46 @@ plot(motifs_glm, xvar="lambda")
 motifs_cv_glm <- cv.glmnet(x = motifs_matrix, y = model_data$log_CV2_t)
 plot(motifs_cv_glm)
 
-coefs <- coef(motifs_cv_glm, s = "lambda.min")
+coefs <- data.matrix(coef(motifs_cv_glm, s = "lambda.min"))
 #Create a tibble of coefficients ordered by absolute value
 sig_glms <- tibble(
-  motif_glmnet = rownames(data.matrix(coefs))[data.matrix(coefs) != 0],
-  coeff_glmnet = data.matrix(coefs)[data.matrix(coefs) != 0]) %>%
-  arrange(desc(abs(coeff_glmnet)))
+      motif_glmnet = rownames(coefs)[coefs != 0],
+      coeff_glmnet = coefs[coefs != 0]
+    ) %>%
+        arrange(desc(abs(coeff_glmnet)))
+
 
 ```
 
 
-```{R Test, eval=FALSE, include=FALSE}
-#JFF
+Then create a list of genes containing these motifs, (list of vectors) and then manually performed Gene Ontology on each list
+  See: "/data/motifs_fun" for GO results
 
-x <- motifs_matrix
-y <- model_data$log_CV2_t
+```{R List Genes with motifs}
+genes_present_l <- list()
+#using index -1 for first intercept row #intercept isn't first
+for (each_m in filter(.data = sig_glms, motif_glmnet != "(Intercept)")$motif_glmnet)
+  {
+  #add all geneName values with 1 for each motif to a list of vectors
+  genes_present_l[[each_m]] <- filter(.data = model_data, 
+                           !!as.name(each_m) == 1)$geneName
 
-cv1=cv.glmnet(x,y,alpha=1)
-cv.5=cv.glmnet(x,y,alpha=0.1)
-cv0=cv.glmnet(x,y,alpha=0)
-plot(cv.5)
+  write(x = genes_present_l[[each_m]], 
+        file = paste0("data/motifs_fun/", each_m, ".txt"))
+  }
 
-par(mfrow=c(2,2))
-plot(cv1);plot(cv.5);plot(cv0)
-plot(log(cv1$lambda),cv1$cvm,pch=19,col="red",xlab="log(Lambda)",ylab=cv1$name)
-points(log(cv.5$lambda),cv.5$cvm,pch=19,col="grey")
-points(log(cv0$lambda),cv0$cvm,pch=19,col="blue")
-legend("topleft",legend=c("alpha= 1","alpha= .5","alpha 0"),pch=19,col=c("red","grey","blue"))
+#cleanup
+remove(each_m)
 
 ```
 
 ```{R Test2}
+
+
+```
+
+
+```{R Test2, eval=FALSE, include=FALSE}
+
+
 ```
