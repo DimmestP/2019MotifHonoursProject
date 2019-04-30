@@ -1,0 +1,266 @@
+---
+title: "DR Analysis New Karsten 2018 paper"
+author: "Abhishek Jain"
+date: "26th April 2019"
+output: 
+  md_document:
+    variant: markdown_github
+editor_options:
+  chunk_output_type: console
+---
+
+
+## Objectives: 
+
+  1. 
+  
+## Initation:
+
+```{R Setup}
+library(tidyverse)
+library(ggplot2)
+library(glmnet)
+```
+
+
+
+```{R Load Data}
+#Error Handling for File not found
+#Syntax tryCatch( {Exprns}, error = function(any){ print("out") } )
+tryCatch({
+            UTR_raw <- read_rds("data/Sun_mutation_UTRs.rds")
+            dr_raw <-read_tsv("data/new_karsten_dr_data.txt")
+            motifs_raw <- scan("data/list_motifs.txt", character())
+            #sr_raw <- read_table("data/sun_total_sr.txt")
+          },
+        error = function(x) 
+          { 
+            print(x) #print actual error
+            cat("\nCurrent directory:",
+                getwd())  
+          }
+)
+
+```
+
+```{R fix data}
+#create a vector of 3'UTRs for searching motifs later 
+UTR_3 <- UTR_raw$UTR3_seq
+
+#change colnames, add means and filter missing values 
+dr_raw2 <- dr_raw %>%
+  rename_all(~c("orf","gene","hlife_r1","hlife_r2")) %>%
+    dplyr::select(-gene) %>%
+      mutate(hlife = rowMeans(cbind(hlife_r1, hlife_r2), na.rm = TRUE)) %>% 
+        filter(is.finite(hlife)) 
+
+#cleaner df
+dr_data <- dr_raw2 %>%
+          dplyr::select(orf, hlife)
+          
+  
+```
+
+```{R visualise}
+dr_raw2 %>%
+  ggplot(aes(x = hlife_r1, y = hlife_r2)) + geom_point() 
+```
+
+
+```{R Freq of Motifs}
+
+
+#new dataframe with ORF names, and frequency counts of some motifs  
+ref_motifs <- tibble(orf = UTR_raw$genename, ATATTC = str_count(UTR_3, "ATATTC"), TGCAT = str_count(UTR_3, "TGCAT"), TGTAAATA = str_count(UTR_3, "TGTAAATA"), TTTTTTA = str_count(UTR_3, "TTTTTTA"))
+
+```
+
+
+
+```{R Shrink and add rates}
+#create a dataset with hlife by matching orf name to dr dataframe
+ref_motifs_rates <- ref_motifs %>%
+    mutate(hlife = dr_data$hlife[match(orf, dr_data$orf)])
+
+
+```
+
+
+Follwoing Boxplots are replication of Figure 4A in Cheng et al. 2017. 
+
+```{R Boxplots}
+#par(mfrow = c(2,2))
+#Convert frequency of motif into a >= limit
+
+plot_ATATTC <- ref_motifs_rates %>% mutate(ATATTC = replace(ATATTC, ATATTC >= 2, 2)) %>%
+ggplot(., aes(x = ATATTC, y = hlife)) +
+  geom_boxplot(aes(group = ATATTC)) + 
+  scale_x_continuous(breaks = c(0,1,2), labels = c("0", "1", ">=2")) +
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+
+
+
+plot_TGCAT <- ref_motifs_rates %>% mutate(TGCAT = replace(TGCAT, TGCAT >= 3, 3)) %>%
+ggplot(data = ., 
+       aes(x = TGCAT, y = hlife)) +
+  geom_boxplot(aes(group = TGCAT)) + 
+  scale_x_continuous(breaks = c(0,1,2,3), labels = c("0", "1", "2", ">=3"))+
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+plot_TGTAAATA <- ref_motifs_rates %>% mutate(TGTAAATA = replace(TGTAAATA, TGTAAATA >= 1, 1)) %>%
+ggplot(data = ., 
+       aes(x = TGTAAATA, y = hlife)) +
+  geom_boxplot(aes(group = TGTAAATA)) + 
+  scale_x_continuous(breaks = c(0,1), labels = c("0", ">=1"))+
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+
+plot_TTTTTTA <- ref_motifs_rates %>% mutate(TTTTTTA = replace(TTTTTTA, TTTTTTA >= 2, 2)) %>%
+ggplot(data = ., 
+       aes(x = TTTTTTA, y = hlife)) +
+  geom_boxplot(aes(group = TTTTTTA)) + 
+  scale_x_continuous(breaks = c(0,1,2), labels = c("0", "1", ">=2"))+
+  scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
+
+gridExtra::grid.arrange(plot_ATATTC, plot_TGCAT, plot_TGTAAATA, plot_TTTTTTA, ncol=4)
+
+```
+
+#Linear MOdelling 
+
+```{R Setup Data for regression}
+motifs = c("TGTAAATA", "TGCAT", "TTTTTTA", "ATATTC")
+
+
+model_data <- ref_motifs_rates %>%
+  #remove rows with NAs
+  filter(!is.na(hlife))%>%
+    #convert motif frequencies to presence and then to factor
+    mutate_at(motifs, funs(replace(., .>= 1, 1)))%>%
+    mutate_at(motifs, funs(factor(.) ))%>%
+      #add a column with log2 transformed hlife
+      mutate(log2_hlife = log2(hlife))
+        
+
+```
+
+
+
+```{R Create Models}
+
+#to create separate linear model for each motif
+each_model <- model_data %>%
+  gather("motif", "presence", ATATTC, TGTAAATA, TGCAT, TTTTTTA)%>%
+    group_by(motif)%>%
+      #create an lm for each motif - will be stored as a tibble
+      do(each_lm = lm(log2_hlife ~ presence, data = .))%>%
+    ungroup()
+
+#to create a multiple linear model
+all_lm <- lm(data = model_data, log2_hlife ~ ATATTC + TGTAAATA + TGCAT + TTTTTTA)
+
+#use multiple LM to compute predicted hlife
+#NOTE: exp2 for anti log of log2(hlife)
+model_data_pred <- add_column(model_data, 
+                           pred_hlife = 2 ^ predict.lm(all_lm, model_data))
+
+
+```
+
+n.b. in the following plot, X and Y axis are NOT logfold
+
+```{R Plot Predicted Linear Model}
+mean_hlife <- mean(model_data_pred$hlife)
+model_data_pred %>% ggplot(data = ., aes(x = pred_hlife, y = hlife)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ x) +
+  scale_y_continuous(trans = "log10") + scale_x_continuous(trans = "log10") + labs(y = "Half Life", x = "Predicted Half Life") + geom_hline(aes(yintercept = mean(hlife)), col = "red") + geom_text(aes(x = 8, y = mean_hlife, label = paste("mean = ", round(mean_hlife, digits = 4))), vjust = -10, col = "red") 
+        
+```
+
+
+```{R For glmnet}
+
+motifs_big <- motifs_raw %>% str_replace_all(c("U" = "T", "W" = "(A|T)", "S" = "(C|G)", "M" = "(A|C)", "K" = "(G|T)", "R" = "(A|G)", "Y" = "(C|T)", "B" = "(C|G|T)", "D" = "(A|G|T)", "H" = "(A|C|T)", "V" = "(A|C|G)", "N" = "(A|C|G|T)"))
+
+#Initate ref tibble and store gene names
+ref_motifs_big <- tibble(orf = UTR_raw$genename)
+
+
+#Search and add frequency of each c(motif) as a column in ref dataset
+for (i in 1:length(motifs_big)){
+ref_motifs_big <- mutate(.data = ref_motifs_big, 
+                      !!motifs_raw[i] := str_count(UTR_3, motifs_big[i]))
+}
+
+
+
+#combine ref motifs with hlife data 
+ref_motifs_big_t <- left_join(ref_motifs_big, dr_data, by = "orf")%>%
+  filter(is.finite(hlife))
+
+
+#motifs = c("TGTAAATA", "TGCAT", "TTTTTTA", "ATATTC")
+
+model_data_big <- ref_motifs_big_t %>%
+  #convert motif frequencies to presence and then to factor
+  mutate_at(motifs_raw, funs(replace(., .>= 1, 1)))%>%
+  mutate_at(motifs_raw, funs(factor(.) ))%>%
+  mutate(log2_hlife = log2(hlife))%>%
+  select(-hlife)
+        
+
+```
+
+```{R hlife glmnet}
+motifs_matrix <- model_data_big %>%
+    dplyr::select(-orf, -log2_hlife) %>%
+      sapply(., strtoi)%>%
+        data.matrix()
+
+motifs_glm <- glmnet(motifs_matrix, y = model_data_big$log2_hlife)
+plot(motifs_glm, xvar="lambda")
+
+#Cross Validated Glmnet to get lambda.min for extracting coeffs 
+motifs_cv_glm <- cv.glmnet(x = motifs_matrix, y = model_data_big$log2_hlife)
+plot(motifs_cv_glm)
+
+coefs <- data.matrix(coef(motifs_cv_glm, s = "lambda.min"))
+#Create a tibble of coefficients ordered by absolute value
+sig_glms <- tibble(
+      motif_glmnet = rownames(coefs)[coefs != 0],
+      coeff_glmnet = coefs[coefs != 0]
+    ) %>%
+        arrange(desc(abs(coeff_glmnet)))
+
+
+```
+
+
+
+```{R Overall lm of glmnet motifs, eval=FALSE, include=FALSE}
+sig_motifs <- filter(sig_glms, motif_glmnet != "(Intercept)")$motif_glmnet
+
+all_lm <- lm(data = model_data_big, paste("log2_hlife", paste(sig_motifs, collapse = " + "), sep = " ~ "))
+
+
+summary(all_lm)
+
+#initialize a tibble for storing lms and coefficients
+indi_lms <- tibble(motif = sig_motifs, 
+                   lm = vector(mode = "list", length = length(sig_motifs)), 
+                   coeffs = vector(mode = "list", length = length(sig_motifs)))
+
+i = 0
+for(i in 1:length(sig_motifs)) {
+  indi_lms[[2]][[i]] <- lm(data = model_data_big, 
+                         paste("log2_hlife", 
+                               sig_motifs[i], 
+                               sep = " ~ ")
+                         )
+  indi_lms[[3]][[i]] <- summary(indi_lms[[2]][[i]])$coefficient[8]
+}
+
+
+```
