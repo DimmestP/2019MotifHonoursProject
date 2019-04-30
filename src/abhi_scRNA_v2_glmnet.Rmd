@@ -186,7 +186,7 @@ ggplot(., aes(x = mean_t, y = CV2_t)) +
 ```
 
 
-```{R Plot Cv^2 vs DR, eval=FALSE, include=FALSE}
+```{R Plot Cv^2 vs DR}
 #import dr_raw
 dr_raw <- read_tsv("data/sun_total_dr.txt", locale = locale(decimal = ","))
   
@@ -239,7 +239,7 @@ summary(all_lm)
 ```
 
 Following chunk tests for multiple runs of cv.glmnet lambda.min values and prints the number of sig_motifs found. 
-```{R Test Various Glmnet}
+```{R Test Various Glmnet eval=FALSE, include=FALSE}
  
 for(i in 1:20){
   motifs_cv_glm <- cv.glmnet(x = motifs_matrix, y = model_data$log_CV2_t)
