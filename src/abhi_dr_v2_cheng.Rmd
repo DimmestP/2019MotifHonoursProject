@@ -78,12 +78,8 @@ ref_motifs <- tibble(orf = UTR_raw$genename, ATATTC = str_count(UTR_3, "ATATTC")
 
 ```{R Shrink and add rates}
 #create a dataset with decayrate(dr) by matching orf name to dr dataframe
-#half life is given by ln2/DecayRate
 ref_motifs_rates <- ref_motifs %>%
-    mutate(dr = dr_data$d_rate[match(geneName, dr_data$orf)], 
-           hlife = log(2)/dr) %>%
-              select(-dr)
-
+    mutate(hlife = dr_data$hlife[match(orf, dr_data$orf)])
 
 ```
 
@@ -269,13 +265,13 @@ model_data_big <- ref_motifs_big_t %>%
 ```
 
 ```{R hlife glmnet}
+library(glmnet)
 motifs_matrix <- model_data_big %>%
     dplyr::select(-orf, -log2_hlife) %>%
       sapply(., strtoi)%>%
         data.matrix()
 
 motifs_glm <- glmnet(motifs_matrix, y = model_data_big$log2_hlife)
-plot(motifs_glm, xvar="lambda")
 
 #Cross Validated Glmnet to get lambda.min for extracting coeffs 
 motifs_cv_glm <- cv.glmnet(x = motifs_matrix, y = model_data_big$log2_hlife)
@@ -291,7 +287,39 @@ sig_glms <- tibble(
 
 ```
 
+```{R New glmnet, eval=FALSE, include=FALSE}
+motifs_matrix <- model_data_big %>%
+  select(-orf, -log2_hlife) %>%
+  sapply(., strtoi)%>%
+  data.matrix()
 
+  motifs_glm <- glmnet(motifs_matrix, y = model_data_big$log2_hlife)
+
+#averaging MSEs of cv.glmnet and extracting lowest lambda as lambda.min
+MSEs <- NULL
+for (i in 1:100){
+    motifs_cv_glm <- cv.glmnet(x = motifs_matrix, 
+                               y = model_data_big$log2_hlife,
+                               nfolds = 100)
+    MSEs <- cbind(MSEs, motifs_cv_glm$cvm)
+}
+rownames(MSEs) <- motifs_cv_glm$lambda
+lambda_min <- as.numeric(names(which.min(rowMeans(MSEs))))
+
+coefs <- data.matrix(coef(motifs_glm, s = lambda_min))
+
+#Create a tibble of coefficients ordered by absolute value
+sig_glms <- tibble(
+      motif_glmnet = rownames(coefs)[coefs != 0],
+      coeff_glmnet = coefs[coefs != 0]
+    ) %>%
+        arrange(desc(abs(coeff_glmnet)))
+
+sig_glms <- filter(sig_glms, motif_glmnet != "(Intercept)")
+sig_motifs <- filter(sig_glms, motif_glmnet != "(Intercept)")$motif_glmnet
+
+
+```
 
 
 

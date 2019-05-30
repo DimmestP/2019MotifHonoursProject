@@ -43,7 +43,7 @@ tryCatch({
 
 ```
 
-```{R fix data}
+```{R clean data}
 #create a vector of 3'UTRs for searching motifs later 
 UTR_3 <- UTR_raw$UTR3_seq
 
@@ -93,7 +93,8 @@ Follwoing Boxplots are replication of Figure 4A in Cheng et al. 2017.
 #Convert frequency of motif into a >= limit
 
 plot_ATATTC <- ref_motifs_rates %>% mutate(ATATTC = replace(ATATTC, ATATTC >= 2, 2)) %>%
-ggplot(., aes(x = ATATTC, y = hlife)) +
+ggplot(data = ., 
+       aes(x = ATATTC, y = hlife)) +
   geom_boxplot(aes(group = ATATTC)) + 
   scale_x_continuous(breaks = c(0,1,2), labels = c("0", "1", ">=2")) +
   scale_y_continuous(trans = "log10", breaks = c(1,5,10,20,40,150))
@@ -234,9 +235,53 @@ sig_glms <- tibble(
     ) %>%
         arrange(desc(abs(coeff_glmnet)))
 
+#repeating and averaging
+MSEs <- NULL
+for (i in 1:10){
+    motifs_cv_glm <- cv.glmnet(x = motifs_matrix, 
+                               y = model_data_big$log2_hlife)
+    MSEs <- cbind(MSEs, motifs_cv_glm$cvm)
+}
+rownames(MSEs) <- motifs_cv_glm$lambda
+lambda.min <- as.numeric(names(which.min(rowMeans(MSEs))))
 
 ```
 
+
+```{R Test new glmnet, eval=FALSE, include=FALSE}
+motifs_matrix <- model_data_big %>%
+  select(-orf, -log2_hlife) %>%
+  sapply(., strtoi)%>%
+  data.matrix()
+
+  motifs_glm <- glmnet(motifs_matrix, y = model_data_big$log2_hlife)
+
+#averaging MSEs of cv.glmnet and extracting lowest lambda as lambda.min
+MSEs <- NULL
+for (i in 1:100){
+    motifs_cv_glm <- cv.glmnet(x = motifs_matrix, 
+                               y = model_data_big$log2_hlife,
+                               nfolds = 100)
+    MSEs <- cbind(MSEs, motifs_cv_glm$cvm)
+}
+rownames(MSEs) <- motifs_cv_glm$lambda
+lambda_min <- as.numeric(names(which.min(rowMeans(MSEs))))
+#lambda_min <- ####
+
+coefs <- data.matrix(coef(motifs_glm, s = lambda_min))
+
+#Create a tibble of coefficients ordered by absolute value
+sig_glms <- tibble(
+      motif_glmnet = rownames(coefs)[coefs != 0],
+      coeff_glmnet = coefs[coefs != 0]
+    ) %>%
+        arrange(desc(abs(coeff_glmnet)))
+
+sig_glms <- filter(sig_glms, motif_glmnet != "(Intercept)")
+sig_motifs <- filter(sig_glms, motif_glmnet != "(Intercept)")$motif_glmnet
+
+
+```
 
 
 ```{R Overall lm of glmnet motifs, eval=FALSE, include=FALSE}
