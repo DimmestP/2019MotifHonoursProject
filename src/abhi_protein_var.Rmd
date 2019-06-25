@@ -1,0 +1,61 @@
+---
+title: "Abhishek Honours Project Combined"
+author: "Abhishek Jain"
+date: "25th June 2019"
+output: 
+  md_document:
+    variant: markdown_github
+editor_options:
+  chunk_output_type: console
+---
+
+## Initation:
+
+```{R Setup}
+library(tidyverse)
+library(glmnet)
+library(lmodel2)
+library(xlsReadWrite)
+
+library(ggplot2)
+#theme for ggplot  
+  theme_coding <- function(...){
+  theme_bw()+
+  theme(axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        axis.title = element_text(size = 12),
+        panel.grid = element_blank(),
+        plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), units = , "cm"),
+        plot.title = element_text(size = 20, vjust = 1, hjust = 0.5),
+        legend.text = element_text(size = 12),
+        legend.title = element_blank(),
+        legend.position = c(0.9, 0.9))
+}
+
+#titles function incomplete
+  x_y_titles <- function(){
+    
+    
+  }
+  
+#defining fun color for scheming
+colour <- c(teal = "#237E8A", green = "#1A8A21", red = "#A62621")
+
+```
+
+```{R Load Data}
+#check directory with getwd()) is root, not src (in case of error)
+
+#ref datasets for UTRs 
+UTR_raw <- read_rds("data/Sun_mutation_UTRs.rds")
+  #Get sequences from UTR_raw in a separate vector
+  UTR_3 <- UTR_raw$UTR3_seq
+
+
+#single cell variation data
+sc_raw <-read_tsv("data/YPD_scRNA.tab")
+
+#load single cell protein data
+
+  
+```

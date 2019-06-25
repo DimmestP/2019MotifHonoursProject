@@ -38,7 +38,7 @@ sc_raw <-read_tsv("data/YPD_scRNA.tab")
 
 #Load Manually created motifs list into a vector
 #motifs_raw <- scan("data/list_motifs.txt", character())
-#list_genes <- scan("data/genes_terminators_list.txt", character())
+list_genes <- scan("data/genes_terminators_list.txt", character())
 
 #motifs_cheng = c("TGTAAATA", "TGCAT", "TTTTTTA", "ATATTC")
 
@@ -89,15 +89,122 @@ model_data <- ref_codons_dr %>%
     mutate(log2_hlife = log2(hlife)) %>%
       select(-hlife, -CDS_seq)
 
-#create multiple lm model for prediction 
+
+#selected_data
+selected_data <- model_data %>%
+  filter(geneName %in% list_genes)
+
+#Create a subset of model_data for linear modelling
+
+  #creates an operator for Not %in%
+  '%!in%' <- function(x,y)!('%in%'(x,y))
+  
+    model_data_sub <- model_data %>%
+      filter(geneName %!in% list_genes)
+
+#list of codons in model data
 codons <- colnames(subset(model_data, 
                           select = -c(geneName, log2_hlife) ))
 
+#full multiple linear model
 lm_codons_dr <- lm(data = model_data, 
                      paste("log2_hlife", 
                            paste(codons, 
                                  collapse = " + "),
                            sep = " ~ "))
+
+#multiple linear model of subset
+lm_codons_sub <- lm(data = model_data_sub, 
+                     paste("log2_hlife", 
+                           paste(codons, 
+                                 collapse = " + "),
+                           sep = " ~ "))
+
+```
+
+```{R Prediction from LM}
+
+predicted_data <- selected_data %>%
+  mutate(pred_log2hlife = predict(lm_codons_sub, selected_data))
+
+predicted_data %>%
+  ggplot(aes(x = log2_hlife, y = pred_log2hlife, col = geneName)) +
+    geom_point() + 
+    scale_x_continuous(limits = c(0, 5)) + 
+    scale_y_continuous(limits = c(0, 5)) +
+    geom_abline() +
+    #geom_smooth(method = "lm", formula = y ~ x) +
+#    theme_coding() + 
+    labs(y = "Predicted Half life", 
+         x = "Measured Half Life")
+
+```
+
+
+```{R Glmnet Matrix}
+#Chan et al
+model_matrix <- model_data %>%
+    dplyr::select(-geneName, -log2_hlife) %>%
+      #sapply(., strtoi)%>%
+        data.matrix()
+
+model_matrix_sub <- model_data_sub %>%
+    dplyr::select(-geneName, -log2_hlife) %>%
+      #sapply(., strtoi)%>%
+        data.matrix()
+
+pred_matrix_sel <- selected_data %>%
+    dplyr::select(-geneName, -log2_hlife) %>%
+      data.matrix()
+```
+
+```{Performing Glmnet on Chan et al 2018}
+
+#Cross Validated Glmnet to get lambda.min for extracting coeffs 
+cv_glm <- cv.glmnet(x = model_matrix_sub, 
+                    y = model_data_sub$log2_hlife,
+                    nfolds = 100)
+
+#visualize MSE vs log(lambda plot) for CV glmnet
+plot(cv_glm, sub = "DATA: Chan et al. 2018 ")
+
+
+```
+
+
+```{R glmnet Linear Modelling}
+coefs <- data.matrix(coef(cv_glm, s = "lambda.min"))
+
+#Create a tibble of coefficients ordered by absolute value
+sig_glms <- tibble(
+      codons_glmnet = rownames(coefs),
+      coeff_glmnet = coefs[,1]
+    ) %>%
+        arrange(desc(abs(coeff_glmnet))) %>%
+          filter(codons_glmnet != "(Intercept)") %>%
+          filter(coeff_glmnet != 0)
+
+#create multiple lm model for predtion 
+lm_codons_glmnet <- lm(data = model_data_sub, 
+                     paste("log2_hlife", 
+                           paste(sig_glms$codons_glmnet, 
+                                 collapse = " + "),
+                           sep = " ~ "))
+
+#predict using glmnet
+predicted_data_g <- selected_data %>%
+  mutate(pred_log2hlife = predict(cv_glm, pred_matrix_sel))
+
+predicted_data_g %>%
+  ggplot(aes(x = log2_hlife, y = pred_log2hlife)) +
+    geom_point() + 
+    scale_x_continuous(limits = c(0, 5)) + 
+    scale_y_continuous(limits = c(0, 5)) + 
+    geom_smooth(method = "lm", formula = y ~ x) +
+#    theme_coding() + 
+    labs(y = "Predicted Half life", 
+         x = "Measured Half Life")
+
 ```
 
 Code for checking if sun et al codon usage values are correct
@@ -151,3 +258,12 @@ predicted_data %>%
          x = "Measured Half Life")
 
 ```
+
+```{R test glmnet}
+
+
+
+
+
+```
+
