@@ -50,14 +50,14 @@ UTR_3 <- UTR_raw$UTR3_seq
 
 #change colnames, add means and filter missing values 
 dr_raw2 <- dr_raw %>%
-  rename_all(~c("geneName","gene","hlife_r1","hlife_r2")) %>%
-    dplyr::select(-gene) %>%
+  rename_all(~c("geneName","comgeneName","hlife_r1","hlife_r2")) %>%
+    #dplyr::select(-gene) %>%
       mutate(hlife = rowMeans(cbind(hlife_r1, hlife_r2), na.rm = TRUE)) %>% 
         filter(is.finite(hlife)) 
 
 #cleaner df
 dr_data <- dr_raw2 %>%
-          dplyr::select(geneName, hlife)
+          dplyr::select(geneName, comgeneName, hlife)
 
 dr_data_sub <- dr_data %>%
   filter(geneName %in% list_genes)

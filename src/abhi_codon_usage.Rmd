@@ -50,13 +50,15 @@ list_genes <- scan("data/genes_terminators_list.txt", character())
 
 ```{R clean data}
 #create a dataframe with codon usage for each gene
-ref_codons <- ref_raw %>%
-  select(genename, CDS_seq,TTT:GGG) %>%
-    rename(geneName = genename) %>%
-    mutate_at(vars(TTT:GGG), funs(./nchar(CDS_seq)))
+ref_codons_freq <- ref_raw %>%
+  select(genename, CDS_seq, TTT:GGG) %>%
+    rename(geneName = genename)
 
-
-
+#Calculate proportional codon usage for each transcript & remove one codon
+ref_codons <- ref_codons_freq %>%
+  mutate_at(vars(TTT:GGG), funs(./nchar(CDS_seq))) %>%
+    select(-TTT, -CDS_seq) 
+  
 
 #change colnames, add means and filter missing values 
 dr_raw2 <- dr_raw %>%
@@ -107,11 +109,13 @@ codons <- colnames(subset(model_data,
                           select = -c(geneName, log2_hlife) ))
 
 #full multiple linear model
-lm_codons_dr <- lm(data = model_data, 
+lm_codons_dr <- lm(data = model_combined, 
                      paste("log2_hlife", 
                            paste(codons, 
                                  collapse = " + "),
                            sep = " ~ "))
+
+
 
 #multiple linear model of subset
 lm_codons_sub <- lm(data = model_data_sub, 
@@ -156,6 +160,8 @@ model_matrix_sub <- model_data_sub %>%
 pred_matrix_sel <- selected_data %>%
     dplyr::select(-geneName, -log2_hlife) %>%
       data.matrix()
+
+
 ```
 
 ```{Performing Glmnet on Chan et al 2018}
@@ -259,11 +265,97 @@ predicted_data %>%
 
 ```
 
-```{R test glmnet}
+```{R test combined model}
+
+model_data_codons <- model_data %>%
+  select(-TTT, -log2_hlife)
+
+model_matrix_codons <- model_data %>%
+    dplyr::select(-geneName, -log2_hlife) %>%
+      #sapply(., strtoi)%>%
+        data.matrix()
+
+model_matrix_motifs <- model_data_k_dr %>%
+    dplyr::select(-geneName, -log2_hlife) %>%
+      sapply(., strtoi)%>%
+        data.matrix()
+
+model_matrix_combined <- cbind(model_matrix_codons, model_matrix_motifs)
+
+
+cv_glmnet_com <- cv.glmnet(x = model_matrix_combined, 
+                           y = model_data$log2_hlife,
+                           nfolds = 100)
+
+#visualize MSE vs log(lambda plot) for CV glmnet
+plot(cv_glmnet_com, sub = "DATA: Chan et al. 2018 ")
 
 
 
+coefs <- data.matrix(coef(cv_glmnet_com, s = "lambda.min"))
+
+#Create a tibble of coefficients ordered by absolute value
+sig_glms <- tibble(
+      codons_glmnet = rownames(coefs),
+      coeff_glmnet = coefs[,1]
+    ) %>%
+        arrange(desc(abs(coeff_glmnet))) %>%
+          filter(codons_glmnet != "(Intercept)") %>%
+          filter(coeff_glmnet != 0)
 
 
+
+########
+model_combined <- left_join(model_data_codons, model_data_k_dr, by = "geneName")
+
+  #creates an operator for Not %in%
+  '%!in%' <- function(x,y)!('%in%'(x,y))
+  
+    model_combined_sub <- model_combined %>%
+      filter(geneName %!in% list_genes)
+    
+    model_combined_sel <- model_combined %>%
+      filter(geneName %in% list_genes)
+    
+    pred_matrix_sel <- model_combined_sel %>%
+    dplyr::select(-geneName, -log2_hlife)
+
+    
+
+predictors <- paste(c(paste(codons, collapse = " + "),
+                  paste(sig_glms_k_dr$motif_glmnet, collapse = " + ")), 
+                collapse = " + ")
+
+
+
+lm_combined_dr <- lm(data = model_combined, 
+                      paste("log2_hlife", predictors, sep = " ~ "))
+
+
+predictors_sub <- paste(c(paste(codons, collapse = " + "),
+                  paste(c("TGTAAATA", "TGCAT", "TTTTTTA", "ATATTC"), collapse = " + ")), 
+                collapse = " + ")
+
+step_lm <- lm(data = model_combined_sub, 
+                      paste("log2_hlife", predictors, sep = " ~ "))
+
+
+lm_step_combined <- step(step_lm, scope = list(upper = step_lm, lower = lm_codons_dr), trace = FALSE)
+
+
+predicted_step_sel <- model_combined_sel %>%
+  mutate(pred_hlife = predict(lm_step_combined, 
+                              pred_matrix_sel))
+
+
+predicted_step_sel %>%
+  ggplot(aes(x = log2_hlife, y = pred_hlife, col = geneName)) +
+    geom_point() + 
+    scale_x_continuous(limits = c(0, 5)) + 
+    scale_y_continuous(limits = c(0, 5)) + 
+    geom_abline() +
+#    theme_coding() + 
+    labs(y = "Predicted Half life", 
+         x = "Measured Half Life")
 ```
 

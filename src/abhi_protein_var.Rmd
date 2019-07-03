@@ -15,7 +15,6 @@ editor_options:
 library(tidyverse)
 library(glmnet)
 library(lmodel2)
-library(xlsReadWrite)
 
 library(ggplot2)
 #theme for ggplot  
@@ -53,9 +52,87 @@ UTR_raw <- read_rds("data/Sun_mutation_UTRs.rds")
 
 
 #single cell variation data
-sc_raw <-read_tsv("data/YPD_scRNA.tab")
+sc_rna_raw <-read_tsv("data/YPD_scRNA.tab")
 
 #load single cell protein data
-
+sc_pro_mean <- read_xls("data/sc_proteome_chong.xls", 
+                        sheet = 1, 
+                        skip = 3) %>% type_convert()
   
+sc_pro_sd <- read_xls("data/sc_proteome_chong.xls", 
+                      sheet = 2, 
+                      skip = 3) %>% type_convert()
+
+
+
+
+```
+
+```{MOdify Data}
+#shorten data by removing non-WT cells
+sc_pro <- left_join(sc_pro_mean[1:5], sc_pro_sd[1:5],
+                    by = "ORF", 
+                    suffix = c("_mean","_sd")) %>%
+  select(-`Gene name_mean`, -`Gene name_sd`) %>%
+  rename(geneName = ORF) %>%
+    mutate(CV2_WT1 = (WT1_sd/WT1_mean)^2, 
+           CV2_WT2 = (WT2_sd/WT2_mean)^2, 
+           CV2_WT3 = (WT3_sd/WT3_mean)^2,
+           mean_pro = ((WT1_mean + WT2_mean + WT3_mean)/3))
+
+
+#new dataframe with various measures of variation from sc_raw data
+sc_rna_various <- sc_rna_raw %>%
+  select(-comGeneName)%>%
+  gather(key = "cell", value = "transcripts", select = -geneName)%>%
+    group_by(geneName)%>%
+      #add columns with different measures of variation
+      summarize(mean_t = mean(transcripts), 
+             stdev_t = sd(transcripts),
+             variance_t = var(transcripts))%>%
+      filter(mean_t > 0)%>%
+      mutate(VMR_t = variance_t/mean_t,
+             CV_t = stdev_t/mean_t,
+             CV2_t = (CV_t^2))
+
+#These were modeled earlier version and CV and CV2 were best models
+sc_rna <- sc_rna_various %>%
+  select(geneName, CV2_t, mean_t)
+
+#combine all three datasets
+data_both <- left_join(sc_pro, sc_rna, by = "geneName")
+```
+
+
+```{R Correlation}
+data_cor <- data_both %>% 
+  mutate(CV2_pro = ((CV2_WT1 + CV2_WT2 + CV2_WT3)/3)) %>%
+    select(geneName, CV2_pro, CV2_t, mean_pro, mean_t)
+  
+
+data_cor %>% 
+    ggplot(., aes(x = log2(CV2_t), y = log2(CV2_pro))) +
+    geom_point(col = colour["teal"], alpha = 0.25) +
+    geom_smooth(method = "lm") +
+    #theme_coding() +
+    labs(y = "log2(CV Protein)", 
+         x = "log2 (CV Transcript)")
+#lmodel2(data = ., CV2_pro ~ CV2_t)
+```
+
+
+```{R Test}
+data_cor <- data_both %>% 
+  mutate(CV2_pro = ((CV2_WT1 + CV2_WT2 + CV2_WT3)/3)) %>%
+    select(geneName, CV2_pro, CV2_t, mean_pro, mean_t)
+  
+
+data_both %>% 
+    ggplot(., aes(x = log2(CV2_t), y = log2(CV2_WT3))) +
+    geom_point(col = colour["teal"], alpha = 0.25) +
+    geom_smooth(method = "lm") +
+    #theme_coding() +
+    labs(y = "log2(CV Protein)", 
+         x = "log2 (CV Transcript)")
+#lmodel2(data = ., CV2_pro ~ CV2_t)
 ```
